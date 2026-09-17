@@ -1,0 +1,7 @@
+{
+  "name": "artisan-hub",
+  "private": true,
+  "scripts": {
+    "start": "bash scripts/start-dev.sh"
+  }
+}
