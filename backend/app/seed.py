@@ -7,8 +7,12 @@ def seed_database():
     db = SessionLocal()
 
     try:
-        # Check if already seeded
-        if db.query(User).filter(User.email == "admin@artisanhub.ng").first():
+        # Check if the core seed data already exists.
+        if (
+            db.query(User).filter(User.email == "admin@artisanhub.ng").first()
+            and db.query(Skill).count() > 0
+            and db.query(ArtisanProfile).count() > 0
+        ):
             print("Database already contains seed data.")
             return
 
@@ -110,93 +114,65 @@ def seed_database():
 
         skill_objs = []
         for sdata in skills_data:
-            skill = Skill(name=sdata["name"], category=sdata["category"], description=sdata["description"])
-            db.add(skill)
-            db.flush()
+            skill = db.query(Skill).filter(Skill.name == sdata["name"]).first()
+            if not skill:
+                skill = Skill(name=sdata["name"], category=sdata["category"], description=sdata["description"])
+                db.add(skill)
+                db.flush()
             skill_objs.append(skill)
 
-            for qdata in sdata["questions"]:
-                q = AssessmentQuestion(
-                    skill_id=skill.id,
-                    question_text=qdata["text"],
-                    option_a=qdata["a"],
-                    option_b=qdata["b"],
-                    option_c=qdata["c"],
-                    option_d=qdata["d"],
-                    correct_option=qdata["correct"]
-                )
-                db.add(q)
+            if not db.query(AssessmentQuestion).filter(AssessmentQuestion.skill_id == skill.id).first():
+                for qdata in sdata["questions"]:
+                    q = AssessmentQuestion(
+                        skill_id=skill.id,
+                        question_text=qdata["text"],
+                        option_a=qdata["a"],
+                        option_b=qdata["b"],
+                        option_c=qdata["c"],
+                        option_d=qdata["d"],
+                        correct_option=qdata["correct"]
+                    )
+                    db.add(q)
 
         # 2. Create Users
-        # Admin User
-        admin = User(
-            name="System Administrator",
-            email="admin@artisanhub.ng",
-            phone="+2348000000000",
-            hashed_password=get_password_hash("password123"),
-            role=UserRole.ADMIN,
-            location_name="Nasarawa State University, Keffi",
-            latitude=8.8471,
-            longitude=7.8732
-        )
-        db.add(admin)
+        def get_or_create_user(**values):
+            user = db.query(User).filter(User.email == values["email"]).first()
+            if not user:
+                user = User(**values)
+                db.add(user)
+                db.flush()
+            return user
 
-        # Customer Users
-        customer1 = User(
-            name="Amina Lawal",
-            email="amina@gmail.com",
-            phone="+2348011112222",
-            hashed_password=get_password_hash("password123"),
-            role=UserRole.CUSTOMER,
-            location_name="Highland Quarters, Keffi",
-            latitude=8.8480,
-            longitude=7.8740
+        admin = get_or_create_user(
+            name="System Administrator", email="admin@artisanhub.ng", phone="+2348000000000",
+            hashed_password=get_password_hash("password123"), role=UserRole.ADMIN,
+            location_name="Nasarawa State University, Keffi", latitude=8.8471, longitude=7.8732
         )
-        customer2 = User(
-            name="Emeka Okafor",
-            email="emeka@gmail.com",
-            phone="+2348033334444",
-            hashed_password=get_password_hash("password123"),
-            role=UserRole.CUSTOMER,
-            location_name="GRA Road, Keffi",
-            latitude=8.8450,
-            longitude=7.8710
+        customer1 = get_or_create_user(
+            name="Amina Lawal", email="amina@gmail.com", phone="+2348011112222",
+            hashed_password=get_password_hash("password123"), role=UserRole.CUSTOMER,
+            location_name="Highland Quarters, Keffi", latitude=8.8480, longitude=7.8740
         )
-        db.add_all([customer1, customer2])
-
-        # Artisan Users
-        artisan1 = User(
-            name="Tunde Bakare",
-            email="tunde@plumbing.ng",
-            phone="+2348055556666",
-            hashed_password=get_password_hash("password123"),
-            role=UserRole.ARTISAN,
-            location_name="Market Street, Keffi",
-            latitude=8.8465,
-            longitude=7.8725
+        customer2 = get_or_create_user(
+            name="Emeka Okafor", email="emeka@gmail.com", phone="+2348033334444",
+            hashed_password=get_password_hash("password123"), role=UserRole.CUSTOMER,
+            location_name="GRA Road, Keffi", latitude=8.8450, longitude=7.8710
         )
-        artisan2 = User(
-            name="Ibrahim Musa",
-            email="ibrahim@sparks.ng",
-            phone="+2348077778888",
-            hashed_password=get_password_hash("password123"),
-            role=UserRole.ARTISAN,
-            location_name="Station Road, Keffi",
-            latitude=8.8490,
-            longitude=7.8750
+        artisan1 = get_or_create_user(
+            name="Tunde Bakare", email="tunde@plumbing.ng", phone="+2348055556666",
+            hashed_password=get_password_hash("password123"), role=UserRole.ARTISAN,
+            location_name="Market Street, Keffi", latitude=8.8465, longitude=7.8725
         )
-        artisan3 = User(
-            name="Chidi Nnamdi",
-            email="chidi@woodcraft.ng",
-            phone="+2348099990000",
-            hashed_password=get_password_hash("password123"),
-            role=UserRole.ARTISAN,
-            location_name="Angwan Lambu, Keffi",
-            latitude=8.8440,
-            longitude=7.8760
+        artisan2 = get_or_create_user(
+            name="Ibrahim Musa", email="ibrahim@sparks.ng", phone="+2348077778888",
+            hashed_password=get_password_hash("password123"), role=UserRole.ARTISAN,
+            location_name="Station Road, Keffi", latitude=8.8490, longitude=7.8750
         )
-        db.add_all([artisan1, artisan2, artisan3])
-        db.flush()
+        artisan3 = get_or_create_user(
+            name="Chidi Nnamdi", email="chidi@woodcraft.ng", phone="+2348099990000",
+            hashed_password=get_password_hash("password123"), role=UserRole.ARTISAN,
+            location_name="Angwan Lambu, Keffi", latitude=8.8440, longitude=7.8760
+        )
 
         # Artisan Profiles
         prof1 = ArtisanProfile(
