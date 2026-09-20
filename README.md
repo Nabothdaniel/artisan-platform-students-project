@@ -93,6 +93,39 @@ The main API groups are:
 
 - `/api/auth`: registration, login, token authentication, and current-user data.
 - `/api/artisans`: artisan discovery and profile management.
+## Android APK Sharing
+
+The recommended way to create a shareable Android build is Expo Application Services (EAS). The `mobile/eas.json` file already defines a `preview` profile that produces an installable APK.
+
+Install and authenticate the EAS CLI:
+
+```bash
+npm install --global eas-cli
+eas login
+```
+
+From the mobile directory, configure the project once:
+
+```bash
+cd mobile
+eas build:configure
+```
+
+Create the shareable APK:
+
+```bash
+eas build --platform android --profile preview
+```
+
+EAS will provide a download URL when the cloud build finishes. Download the `.apk` and send it to the project owner. They can install it on Android after allowing installation from the source used to receive the file.
+
+For Google Play, use the production profile instead. It produces an Android App Bundle rather than an APK:
+
+```bash
+eas build --platform android --profile production
+```
+
+The APK is already configured to use the hosted Render API at `https://artisan-platform-students-project.onrender.com/api`, so the recipient does not need your local backend running.
 - `/api/skills`: skill categories and competency quizzes.
 - `/api/kyc`: artisan identity verification submissions and admin approval.
 - `/api/bookings`: customer jobs, artisan bids, bid acceptance, and status changes.

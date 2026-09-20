@@ -14,10 +14,20 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "extra": {
+      "apiBaseUrl": "https://artisan-platform-students-project.onrender.com/api",
+      "localApiBaseUrl": "http://127.0.0.1:8000/api",
+      "eas": {
+        "projectId": "8d0d9abc-1127-4a78-93c3-0e305b5837b2"
+      }
+    },
     "ios": {
       "supportsTablet": true
     },
-    "android": {},
-    "web": {}
+    "android": {
+      "package": "com.artisanhub.mobile"
+    },
+    "web": {},
+    "owner": "dannytheewebdev"
   }
 }
