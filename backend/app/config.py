@@ -25,8 +25,8 @@ class Settings:
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     
-    # Allows setting DATABASE_URL environment variable for PostgreSQL or SQLite default
-    _raw_db_url: str = os.getenv("DATABASE_URL", "sqlite:///./artisan_hub.db")
+    # DB_URI is the deployed setting; DATABASE_URL remains supported for compatibility.
+    _raw_db_url: str = os.getenv("DB_URI") or os.getenv("DATABASE_URL", "sqlite:///./artisan_hub.db")
     
     @property
     def DATABASE_URL(self) -> str:
