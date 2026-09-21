@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
-import { Modal } from '../../components/ui/Modal';
-import { Input } from '../../components/ui/Input';
-import { Button } from '../../components/ui/Button';
+import { tokens } from '../../theme/tokens';
+import { Button, Chip, Input, Sheet, Text, useToast } from '../../components/ui/foundation';
 import { api } from '../../services/api';
-import { spacing, typography, borderRadius } from '../../theme/spacing';
 
 interface CreateBookingModalProps {
   visible: boolean;
@@ -15,9 +13,9 @@ interface CreateBookingModalProps {
 }
 
 const EMERGENCY_LEVELS = [
-  { id: 'low', label: 'Standard (1-3 days)', color: '#10B981' },
-  { id: 'medium', label: 'Urgent (Within 24 hrs)', color: '#F59E0B' },
-  { id: 'high', label: 'Immediate Emergency', color: '#EF4444' }
+  { id: 'low', label: 'Standard (1-3 days)' },
+  { id: 'medium', label: 'Urgent (Within 24 hrs)' },
+  { id: 'high', label: 'Immediate Emergency' }
 ];
 
 export const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
@@ -26,7 +24,8 @@ export const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
   onClose,
   onSuccess
 }) => {
-  const { colors, token } = useTheme();
+  const { token } = useTheme();
+  const toast = useToast();
   const [skills, setSkills] = useState<any[]>([]);
   const [selectedSkillId, setSelectedSkillId] = useState<number | null>(null);
   const [title, setTitle] = useState('');
@@ -79,6 +78,7 @@ export const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
       );
       onSuccess();
       onClose();
+      toast.success('Job posted. Artisans can now send you quotes.');
     } catch (err: any) {
       setError(err.message || 'Failed to submit service request.');
     } finally {
@@ -87,145 +87,115 @@ export const CreateBookingModal: React.FC<CreateBookingModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} title="Post Service Request" onClose={onClose}>
-      <ScrollView style={{ maxHeight: 500 }}>
-        {error ? (
-          <Text style={[styles.errorBox, { backgroundColor: colors.dangerBackground, color: colors.danger }]}>
-            {error}
-          </Text>
-        ) : null}
+    <Sheet
+      visible={visible}
+      title="Post Service Request"
+      onClose={onClose}
+      footer={
+        <Button
+          label="Publish Service Request"
+          onPress={handleSubmit}
+          loading={loading}
+          size="lg"
+        />
+      }
+    >
+      {error ? <Text variant="body" color={tokens.colors.danger}>{error}</Text> : null}
 
-        <Text style={[styles.label, { color: colors.textSecondary }]}>Required Trade Skill</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.skillScroll}>
-          {skills.map(s => {
-            const isSelected = selectedSkillId === s.id;
-            return (
-              <TouchableOpacity
-                key={s.id}
-                onPress={() => setSelectedSkillId(s.id)}
-                style={[
-                  styles.skillPill,
-                  {
-                    backgroundColor: isSelected ? colors.primary : colors.inputBackground,
-                    borderColor: isSelected ? colors.primary : colors.inputBorder,
-                  }
-                ]}
-              >
-                <Text style={[styles.skillText, { color: isSelected ? '#FFFFFF' : colors.textPrimary }]}>
-                  {s.name}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+      <View style={styles.group}>
+        <Text variant="meta" color={tokens.colors.textMuted}>Required Trade Skill</Text>
+        <ScrollView
+          horizontal
+          bounces={false}
+          showsHorizontalScrollIndicator={false}
+          style={styles.skillScroll}
+          contentContainerStyle={styles.chips}
+        >
+          {skills.map(s => (
+            <Chip
+              key={s.id}
+              label={s.name}
+              selected={selectedSkillId === s.id}
+              onPress={() => setSelectedSkillId(s.id)}
+            />
+          ))}
         </ScrollView>
+      </View>
 
-        <Input
-          label="Job Title"
-          placeholder="e.g. Leaking Garden Pipe Connector"
-          value={title}
-          onChangeText={setTitle}
-        />
+      <Input
+        label="Job Title"
+        placeholder="e.g. Leaking Garden Pipe Connector"
+        value={title}
+        onChangeText={setTitle}
+      />
 
-        <Input
-          label="Detailed Description"
-          placeholder="Describe the labor required, materials needed, or symptoms..."
-          value={description}
-          onChangeText={setDescription}
-          multiline
-          numberOfLines={3}
-          style={{ height: 70, textAlignVertical: 'top' }}
-        />
+      <Input
+        label="Detailed Description"
+        placeholder="Describe the labor required, materials needed, or symptoms..."
+        value={description}
+        onChangeText={setDescription}
+        multiline
+        numberOfLines={3}
+      />
 
+      {/* Two short paired fields share a row to save a whole field's height. */}
+      <View style={styles.fieldRow}>
         <Input
-          label="Service Address / Location"
-          placeholder="e.g. GRA Road, Keffi"
+          label="Address"
+          placeholder="GRA Road, Keffi"
           value={address}
           onChangeText={setAddress}
+          containerStyle={styles.fieldHalf}
         />
-
         <Input
-          label="Target Budget (₦)"
+          label="Budget (₦)"
           placeholder="5000"
           keyboardType="numeric"
           value={budget}
           onChangeText={setBudget}
+          containerStyle={styles.fieldHalf}
         />
+      </View>
 
-        <Text style={[styles.label, { color: colors.textSecondary, marginTop: spacing.md }]}>Urgency / Emergency Level</Text>
-        <View style={styles.urgencyContainer}>
-          {EMERGENCY_LEVELS.map(lvl => {
-            const isSel = emergencyLevel === lvl.id;
-            return (
-              <TouchableOpacity
-                key={lvl.id}
-                onPress={() => setEmergencyLevel(lvl.id)}
-                style={[
-                  styles.urgencyPill,
-                  {
-                    backgroundColor: isSel ? colors.primaryLight : colors.inputBackground,
-                    borderColor: isSel ? colors.primary : colors.inputBorder,
-                  }
-                ]}
-              >
-                <Text style={[styles.urgencyText, { color: isSel ? colors.primary : colors.textSecondary }]}>
-                  {lvl.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+      <View style={styles.group}>
+        <Text variant="meta" color={tokens.colors.textMuted}>Urgency / Emergency Level</Text>
+        <View style={styles.urgency}>
+          {EMERGENCY_LEVELS.map(lvl => (
+            <Chip
+              key={lvl.id}
+              label={lvl.label}
+              selected={emergencyLevel === lvl.id}
+              onPress={() => setEmergencyLevel(lvl.id)}
+            />
+          ))}
         </View>
-
-        <View style={{ marginTop: spacing.xl }}>
-          <Button
-            title="Publish Service Request"
-            onPress={handleSubmit}
-            loading={loading}
-            variant="primary"
-            size="lg"
-          />
-        </View>
-      </ScrollView>
-    </Modal>
+      </View>
+    </Sheet>
   );
 };
 
 const styles = StyleSheet.create({
-  errorBox: {
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    fontSize: typography.fontSize.sm,
-    marginBottom: spacing.md,
-  },
-  label: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-    marginBottom: spacing.xs,
+  group: {
+    gap: tokens.spacing[2],
   },
   skillScroll: {
-    marginBottom: spacing.md,
+    flexGrow: 0,
   },
-  skillPill: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    marginRight: spacing.sm,
+  chips: {
+    gap: tokens.spacing[2],
   },
-  skillText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
+  fieldRow: {
+    flexDirection: 'row',
+    gap: tokens.spacing[3],
   },
-  urgencyContainer: {
-    gap: spacing.xs,
-    marginBottom: spacing.md,
+  // minWidth: 0 keeps each half from growing past its share of the row.
+  fieldHalf: {
+    flex: 1,
+    minWidth: 0,
   },
-  urgencyPill: {
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
+  urgency: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: tokens.spacing[2],
   },
-  urgencyText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
-  }
 });

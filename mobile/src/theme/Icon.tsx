@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   AlertCircle,
+  CircleHelp,
   X,
   ArrowLeft,
   MoreHorizontal,
@@ -24,10 +25,9 @@ import {
   UserRoundX,
   UsersRound,
   Wrench,
-  CircleHelp,
 } from 'lucide-react-native';
 import { TextStyle } from 'react-native';
-import { useTheme } from '../../theme/ThemeContext';
+import { useTheme } from './ThemeContext';
 
 export type IconName =
   | 'weather-sunny'
@@ -96,17 +96,7 @@ export const Icon: React.FC<IconProps> = ({ name, size = 20, color, style, fille
   };
   const IconComponent = icons[name] || CircleHelp;
 
-  if (!icons[name]) {
-    console.warn(`[ArtisanHub] Unmapped icon name: ${name}`);
-  }
+  if (!icons[name]) console.warn(`[ArtisanHub] Unmapped icon name: ${name}`);
 
-  return (
-    <IconComponent
-      size={iconSize}
-      color={color || colors.textPrimary}
-      fill={filled ? color || colors.textPrimary : 'transparent'}
-      strokeWidth={1.75}
-      style={style}
-    />
-  );
+  return <IconComponent size={iconSize} color={color || colors.textPrimary} fill={filled ? color || colors.textPrimary : 'transparent'} strokeWidth={1.75} style={style} />;
 };

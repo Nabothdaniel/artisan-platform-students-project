@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
+import { tokens } from '../../theme/tokens';
+import {
+  Badge,
+  Button,
+  Card,
+  Divider,
+  EmptyState,
+  SectionHeader,
+  Skeleton,
+  Text,
+  useToast,
+} from '../../components/ui/foundation';
+import { Icon } from '../../components/ui/Icon';
 import { api } from '../../services/api';
-import { spacing, borderRadius } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
 
 export const AdminDashboardScreen: React.FC = () => {
-  const { colors, token } = useTheme();
+  const { token } = useTheme();
+  const toast = useToast();
   const [stats, setStats] = useState<any>(null);
   const [pendingKyc, setPendingKyc] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
@@ -46,132 +55,143 @@ export const AdminDashboardScreen: React.FC = () => {
   const handleReviewKyc = async (kycId: number, approved: boolean) => {
     try {
       await api.approveKYC(kycId, approved, approved ? 'Verified by Admin review' : 'Rejected NIN/BVN token', token || undefined);
+      toast.success(approved ? 'KYC approved.' : 'KYC rejected.');
       fetchAdminData();
     } catch (err: any) {
+      toast.error(err.message || 'Could not save the KYC review.');
       console.log('Error reviewing KYC:', err);
     }
   };
 
+  const metrics = [
+    { label: 'Total users', value: stats?.total_users, color: tokens.colors.text },
+    { label: 'Verified artisans', value: stats?.verified_artisans, color: tokens.colors.success },
+    { label: 'Pending KYC', value: stats?.pending_kyc_count, color: tokens.colors.warning },
+    { label: 'Total bookings', value: stats?.total_bookings, color: tokens.colors.text },
+  ];
+
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAdminData(); }} />}
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          tintColor={tokens.colors.textMuted}
+          onRefresh={() => { setRefreshing(true); fetchAdminData(); }}
+        />
+      }
       contentContainerStyle={styles.contentContainer}
     >
-      <Text style={[styles.heading, { color: colors.textPrimary }]}>
-        Administrative Audit Ledger & Operations
-      </Text>
-      <Text style={[styles.subheading, { color: colors.textSecondary }]}>
-        Real-time monitoring of identity approvals, security logs, and marketplace statistics
-      </Text>
+      <View style={styles.titleBlock}>
+        <Text variant="title">Audit Hub</Text>
+        <Text variant="body" color={tokens.colors.textMuted}>
+          Identity approvals, security logs, and marketplace statistics.
+        </Text>
+      </View>
 
       {loadError ? (
-        <Card bordered>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{loadError}</Text>
-          <Button title="Try Again" onPress={fetchAdminData} variant="outline" size="md" />
+        <Card>
+          <EmptyState title="Couldn't load the admin workspace" description={loadError} />
+          <Button label="Try Again" onPress={fetchAdminData} variant="outline" />
         </Card>
       ) : null}
 
       {/* Metrics Grid */}
       <View style={styles.metricsGrid}>
-        <Card style={styles.metricCard}>
-          <Text style={[styles.metricNumber, { color: colors.primary }]}>{stats?.total_users ?? '-'}</Text>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Total Users</Text>
-        </Card>
-        <Card style={styles.metricCard}>
-          <Text style={[styles.metricNumber, { color: colors.success }]}>{stats?.verified_artisans ?? '-'}</Text>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Verified Artisans</Text>
-        </Card>
-        <Card style={styles.metricCard}>
-          <Text style={[styles.metricNumber, { color: colors.warning }]}>{stats?.pending_kyc_count ?? '-'}</Text>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Pending KYC</Text>
-        </Card>
-        <Card style={styles.metricCard}>
-          <Text style={[styles.metricNumber, { color: colors.primary }]}>{stats?.total_bookings ?? '-'}</Text>
-          <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Total Bookings</Text>
-        </Card>
+        {metrics.map(metric => (
+          <Card key={metric.label} style={styles.metricCard}>
+            {loading && metric.value === undefined ? (
+              <Skeleton width={48} height={38} />
+            ) : (
+              <Text variant="title" color={metric.color}>{metric.value ?? '-'}</Text>
+            )}
+            <Text variant="meta" color={tokens.colors.textMuted}>{metric.label}</Text>
+          </Card>
+        ))}
       </View>
 
       {/* Pending Identity Verification Gate */}
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-        Pending Identity Verifications ({pendingKyc.length})
-      </Text>
+      <View style={styles.section}>
+        <SectionHeader title={`Pending verifications (${pendingKyc.length})`} />
 
-      {pendingKyc.length === 0 ? (
-        <Card bordered style={{ marginBottom: spacing.lg }}>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            All artisan identity submissions have been reviewed. Zero pending approvals.
-          </Text>
-        </Card>
-      ) : (
-        pendingKyc.map(item => (
-          <Card key={item.id} style={{ marginBottom: spacing.md }}>
-            <View style={styles.kycRow}>
-              <View style={{ flex: 1 }}>
-                <View style={styles.badgeRow}>
-                  <Badge label={`${item.id_type} Submission`} variant="pending" />
-                  <Text style={[styles.kycDate, { color: colors.textMuted }]}>
-                    #{item.id}
+        {pendingKyc.length === 0 ? (
+          <Card>
+            <EmptyState
+              title="All caught up"
+              description="All artisan identity submissions have been reviewed. Zero pending approvals."
+            />
+          </Card>
+        ) : (
+          <View style={styles.list}>
+            {pendingKyc.map(item => (
+              <Card key={item.id} style={styles.cardBody}>
+                <View style={styles.spreadRow}>
+                  <Badge label={`${item.id_type} submission`} variant="warning" size="sm" dot />
+                  <Text variant="meta" color={tokens.colors.textMuted}>#{item.id}</Text>
+                </View>
+
+                <View style={styles.kycInfo}>
+                  <Text variant="subheading">Token: {item.id_token}</Text>
+                  <Text variant="meta" color={tokens.colors.textMuted}>
+                    Submitted on {new Date(item.submitted_at).toLocaleString()}
                   </Text>
                 </View>
-                <Text style={[styles.kycToken, { color: colors.textPrimary }]}>
-                  Token: {item.id_token}
-                </Text>
-                <Text style={[styles.kycSub, { color: colors.textSecondary }]}>
-                  Submitted on {new Date(item.submitted_at).toLocaleString()}
-                </Text>
-              </View>
 
-              <View style={styles.kycActions}>
-                <Button
-                  title="Approve"
-                  onPress={() => handleReviewKyc(item.id, true)}
-                  variant="primary"
-                  size="sm"
-                />
-                <Button
-                  title="Reject"
-                  onPress={() => handleReviewKyc(item.id, false)}
-                  variant="outline"
-                  size="sm"
-                />
-              </View>
-            </View>
-          </Card>
-        ))
-      )}
+                <View style={styles.kycActions}>
+                  <Button
+                    label="Approve"
+                    onPress={() => handleReviewKyc(item.id, true)}
+                    size="sm"
+                    style={styles.kycAction}
+                  />
+                  <Button
+                    label="Reject"
+                    onPress={() => handleReviewKyc(item.id, false)}
+                    variant="outline"
+                    size="sm"
+                    style={styles.kycAction}
+                  />
+                </View>
+              </Card>
+            ))}
+          </View>
+        )}
+      </View>
 
       {/* Security & System Audit Log Feed */}
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-        Administrative Audit Ledger ({auditLogs.length} events)
-      </Text>
+      <View style={styles.section}>
+        <SectionHeader title={`Audit ledger (${auditLogs.length} events)`} />
 
-      {auditLogs.length === 0 ? (
-        <Card bordered>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No audit log records available.
-          </Text>
-        </Card>
-      ) : (
-        auditLogs.map(log => (
-          <View key={log.id} style={[styles.auditRow, { borderBottomColor: colors.divider }]}>
-            <View style={styles.auditIconBg}>
-              <Text style={{ fontSize: 14 }}>System</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={styles.badgeRow}>
-                <Text style={[styles.actionText, { color: colors.primary }]}>{log.action}</Text>
-                <Text style={[styles.auditTime, { color: colors.textMuted }]}>
-                  {new Date(log.timestamp).toLocaleTimeString()}
-                </Text>
-              </View>
-              <Text style={[styles.detailsText, { color: colors.textSecondary }]}>
-                {log.details || 'System operation executed.'}
-              </Text>
-            </View>
-          </View>
-        ))
-      )}
+        {auditLogs.length === 0 ? (
+          <Card>
+            <EmptyState title="No audit records" description="No audit log records available." />
+          </Card>
+        ) : (
+          <Card style={styles.cardBody}>
+            {auditLogs.map((log, index) => (
+              <React.Fragment key={log.id}>
+                {index > 0 ? <Divider /> : null}
+                <View style={styles.auditRow}>
+                  <View style={styles.auditIconBg}>
+                    <Icon name="shield-check-outline" size={tokens.iconSizes.sm} color={tokens.colors.textMuted} />
+                  </View>
+                  <View style={styles.auditText}>
+                    <View style={styles.spreadRow}>
+                      <Text variant="body" color={tokens.colors.accent} style={styles.auditAction}>{log.action}</Text>
+                      <Text variant="meta" color={tokens.colors.textMuted}>
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </Text>
+                    </View>
+                    <Text variant="meta" color={tokens.colors.textMuted}>
+                      {log.details || 'System operation executed.'}
+                    </Text>
+                  </View>
+                </View>
+              </React.Fragment>
+            ))}
+          </Card>
+        )}
+      </View>
     </ScrollView>
   );
 };
@@ -179,98 +199,77 @@ export const AdminDashboardScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: tokens.colors.background,
   },
   contentContainer: {
-    padding: spacing.lg,
+    paddingHorizontal: tokens.spacing[5],
+    paddingTop: tokens.spacing[2],
+    paddingBottom: tokens.spacing[6],
+    gap: tokens.spacing[4],
   },
-  heading: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.xs,
+  titleBlock: {
+    gap: tokens.spacing[1],
   },
-  subheading: {
-    fontSize: typography.fontSize.sm,
-    marginBottom: spacing.lg,
+  section: {
+    gap: tokens.spacing[2],
+  },
+  list: {
+    gap: tokens.spacing[3],
+  },
+  cardBody: {
+    gap: tokens.spacing[3],
   },
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
-    marginBottom: spacing.xl,
+    gap: tokens.spacing[3],
   },
+  // Two per row: grow from a basis under half so the gap never forces a wrap to one column.
   metricCard: {
-    width: '46%',
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
+    flexGrow: 1,
+    flexBasis: '45%',
+    minWidth: 0,
+    gap: tokens.spacing[1],
   },
-  metricNumber: {
-    fontSize: 26,
-    fontWeight: typography.fontWeight.bold,
-  },
-  metricLabel: {
-    fontSize: typography.fontSize.xs,
-    marginTop: spacing.xs,
-    fontWeight: typography.fontWeight.semibold,
-  },
-  sectionTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.md,
-  },
-  emptyText: {
-    fontSize: typography.fontSize.sm,
-    textAlign: 'center',
-    padding: spacing.md,
-  },
-  kycRow: {
-    flexDirection: 'column',
-    gap: spacing.sm,
-  },
-  badgeRow: {
+  spreadRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    justifyContent: 'space-between',
+    gap: tokens.spacing[2],
   },
-  kycDate: {
-    fontSize: typography.fontSize.xs,
-  },
-  kycToken: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: 2,
-  },
-  kycSub: {
-    fontSize: typography.fontSize.xs,
+  kycInfo: {
+    gap: tokens.spacing[1],
   },
   kycActions: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
+    gap: tokens.spacing[2],
+  },
+  kycAction: {
+    flex: 1,
   },
   auditRow: {
     flexDirection: 'row',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
+    gap: tokens.spacing[3],
   },
   auditIconBg: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.full,
+    width: 36,
+    height: 36,
+    borderRadius: tokens.radii.full,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: tokens.colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
   },
-  actionText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
+  // minWidth: 0 lets long log details wrap instead of widening the row.
+  auditText: {
+    flex: 1,
+    minWidth: 0,
+    gap: tokens.spacing[1],
   },
-  auditTime: {
-    fontSize: typography.fontSize.xs,
+  auditAction: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: tokens.typography.fontFamily.semibold,
   },
-  detailsText: {
-    fontSize: typography.fontSize.sm,
-    marginTop: 2,
-  }
 });

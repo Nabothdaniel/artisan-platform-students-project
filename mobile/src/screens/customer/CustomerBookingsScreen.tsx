@@ -1,17 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { RatingStars } from '../../components/ui/RatingStars';
-import { Modal } from '../../components/ui/Modal';
-import { Input } from '../../components/ui/Input';
+import { tokens } from '../../theme/tokens';
+import {
+  Badge,
+  BadgeVariant,
+  Button,
+  Card,
+  Divider,
+  EmptyState,
+  Input,
+  Rating,
+  Sheet,
+  Skeleton,
+  Text,
+  useToast,
+} from '../../components/ui/foundation';
 import { api } from '../../services/api';
-import { spacing, typography, borderRadius } from '../../theme/spacing';
+
+const STATUS_LABEL: Record<string, string> = {
+  requested: 'Requested',
+  bidding_open: 'Bidding open',
+  accepted: 'Accepted',
+  in_progress: 'In progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
+
+const statusVariant = (status: string): BadgeVariant =>
+  status === 'completed' ? 'success'
+    : status === 'accepted' || status === 'in_progress' ? 'accent'
+      : status === 'cancelled' ? 'danger'
+        : 'warning';
 
 export const CustomerBookingsScreen: React.FC = () => {
-  const { colors, token } = useTheme();
+  const { token, requireAuth } = useTheme();
+  const toast = useToast();
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -43,22 +67,24 @@ export const CustomerBookingsScreen: React.FC = () => {
   }, [token]);
 
   const handleAcceptBid = async (bookingId: number, bidId: number) => {
-    if (!token) return;
+    if (!token) return requireAuth();
     try {
       await api.acceptBid(bookingId, bidId, token);
+      toast.success('Bid accepted.');
       fetchBookings();
     } catch (err: any) {
-      alert(err.message || 'Failed to accept bid.');
+      toast.error(err.message || 'Failed to accept bid.');
     }
   };
 
   const handleMarkCompleted = async (bookingId: number) => {
-    if (!token) return;
+    if (!token) return requireAuth();
     try {
       await api.updateBookingStatus(bookingId, 'completed', token);
+      toast.success('Job marked as completed.');
       fetchBookings();
     } catch (err: any) {
-      alert(err.message || 'Failed to update status.');
+      toast.error(err.message || 'Failed to update status.');
     }
   };
 
@@ -87,6 +113,7 @@ export const CustomerBookingsScreen: React.FC = () => {
       setRating(5);
       setComment('');
       setSelectedBooking(null);
+      toast.success('Thanks — your review was submitted.');
       fetchBookings();
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to submit rating.');
@@ -97,146 +124,162 @@ export const CustomerBookingsScreen: React.FC = () => {
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchBookings(); }} />}
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          tintColor={tokens.colors.textMuted}
+          onRefresh={() => { setRefreshing(true); fetchBookings(); }}
+        />
+      }
       contentContainerStyle={styles.contentContainer}
     >
-      <Text style={[styles.title, { color: colors.textPrimary }]}>My Posted Jobs & Bids</Text>
+      <View style={styles.titleBlock}>
+        <Text variant="title">My Jobs</Text>
+        <Text variant="body" color={tokens.colors.textMuted}>Your posted jobs and the bids on them.</Text>
+      </View>
 
       {loading ? (
-        <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading jobs...</Text>
+        <View style={styles.list}>
+          {[0, 1].map(i => (
+            <Card key={i} style={styles.cardBody}>
+              <Skeleton width="70%" height={20} />
+              <Skeleton />
+              <Skeleton width="50%" height={12} />
+            </Card>
+          ))}
+        </View>
       ) : loadError ? (
-        <Card bordered>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{loadError}</Text>
-          <Button title="Try Again" onPress={fetchBookings} variant="outline" size="md" />
+        <Card>
+          <EmptyState title="Couldn't load your jobs" description={loadError} />
+          <Button label="Try Again" onPress={fetchBookings} variant="outline" />
         </Card>
       ) : bookings.length === 0 ? (
-        <Card bordered>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            You haven't posted any service requests yet. Tap "+ Post Job" on the Home tab to get quotes from verified artisans.
-          </Text>
+        <Card>
+          <EmptyState
+            title="No jobs yet"
+            description={'Tap "Post a Job" on the Explore tab to get quotes from verified artisans.'}
+          />
         </Card>
       ) : (
-        bookings.map(booking => {
-          const bids = booking.bids || [];
-          const isCompleted = booking.status === 'completed';
-          const isAccepted = booking.status === 'accepted' || booking.status === 'in_progress';
+        <View style={styles.list}>
+          {bookings.map(booking => {
+            const bids = booking.bids || [];
+            const isCompleted = booking.status === 'completed';
+            const isAccepted = booking.status === 'accepted' || booking.status === 'in_progress';
+            const canAcceptBids = booking.status === 'requested' || booking.status === 'bidding_open';
 
-          return (
-            <Card key={booking.id}>
-              <View style={styles.bookingHeader}>
-                <Text style={[styles.bookingTitle, { color: colors.textPrimary }]}>{booking.title}</Text>
-                <Badge
-                  label={booking.status.toUpperCase()}
-                  variant={isCompleted ? 'verified' : isAccepted ? 'category' : 'pending'}
-                />
-              </View>
+            return (
+              <Card key={booking.id} style={styles.cardBody}>
+                <View style={styles.bookingHeader}>
+                  <Text variant="subheading" style={styles.bookingTitle}>{booking.title}</Text>
+                  <Badge
+                    label={STATUS_LABEL[booking.status] ?? booking.status}
+                    variant={statusVariant(booking.status)}
+                    size="sm"
+                  />
+                </View>
 
-              <Text style={[styles.description, { color: colors.textSecondary }]}>{booking.description}</Text>
-              <Text style={[styles.locationText, { color: colors.textMuted }]}>
-                {booking.address} • Budget: ₦{(booking.budget || 0).toLocaleString()}
-              </Text>
+                <Text variant="body" color={tokens.colors.textMuted}>{booking.description}</Text>
 
-              {/* Bids List Section */}
-              <View style={[styles.bidsSection, { borderTopColor: colors.divider }]}>
-                <Text style={[styles.bidsTitle, { color: colors.textPrimary }]}>
-                  Artisan Price Quotes / Bids ({bids.length})
-                </Text>
+                <View style={styles.metaRow}>
+                  <Text variant="meta" color={tokens.colors.textMuted} style={styles.address} numberOfLines={2}>
+                    {booking.address}
+                  </Text>
+                  <View style={styles.budget}>
+                    <Text variant="heading">₦{(booking.budget || 0).toLocaleString()}</Text>
+                    <Text variant="meta" color={tokens.colors.textMuted}>budget</Text>
+                  </View>
+                </View>
+
+                <Divider dashed />
+
+                {/* Bids */}
+                <Text variant="subheading">Bids ({bids.length})</Text>
 
                 {bids.length === 0 ? (
-                  <Text style={[styles.noBidsText, { color: colors.textMuted }]}>
-                    Waiting for trade artisans to inspect request and place price bids...
+                  <Text variant="meta" color={tokens.colors.textMuted}>
+                    Waiting for artisans to review your request and place bids.
                   </Text>
                 ) : (
                   bids.map((bid: any) => (
-                    <View key={bid.id} style={[styles.bidCard, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
+                    <View key={bid.id} style={styles.bidCard}>
                       <View style={styles.bidHeader}>
-                        <Text style={[styles.bidArtisan, { color: colors.textPrimary }]}>
-                          Artisan #{bid.artisan_id}
-                        </Text>
-                        <Text style={[styles.bidPrice, { color: colors.primary }]}>
+                        <Text variant="body" style={styles.bidArtisan}>Artisan #{bid.artisan_id}</Text>
+                        <Text variant="subheading" color={tokens.colors.accent}>
                           ₦{(bid.proposed_price || 0).toLocaleString()}
                         </Text>
                       </View>
-                      <Text style={[styles.bidNotes, { color: colors.textSecondary }]}>
-                        Est. Time: {bid.estimated_hours} hr(s) • "{bid.notes || 'Ready to execute work'}"
+                      <Text variant="meta" color={tokens.colors.textMuted}>
+                        Est. {bid.estimated_hours} hr(s) • "{bid.notes || 'Ready to execute work'}"
                       </Text>
 
-                      {booking.status === 'requested' || booking.status === 'bidding_open' ? (
+                      {canAcceptBids ? (
                         <Button
-                          title="Accept Bid & Confirm Price"
+                          label="Accept Bid"
                           onPress={() => handleAcceptBid(booking.id, bid.id)}
-                          variant="primary"
                           size="sm"
-                          style={{ marginTop: spacing.xs }}
                         />
                       ) : bid.status === 'accepted' ? (
-                        <Badge label="Accepted Quote" variant="verified" style={{ marginTop: spacing.xs }} />
+                        <Badge label="Accepted quote" variant="success" size="sm" dot />
                       ) : null}
                     </View>
                   ))
                 )}
-              </View>
 
-              {/* Status Actions */}
-              {isAccepted ? (
-                <Button
-                  title="Mark Work as Completed"
-                  onPress={() => handleMarkCompleted(booking.id)}
-                  variant="outline"
-                  size="md"
-                  style={{ marginTop: spacing.md }}
-                />
-              ) : isCompleted && !booking.review ? (
-                <Button
-                  title="Rate & Review Artisan"
-                  onPress={() => openReviewModal(booking)}
-                  variant="primary"
-                  size="md"
-                  style={{ marginTop: spacing.md }}
-                />
-              ) : null}
-            </Card>
-          );
-        })
+                {/* Status Actions */}
+                {isAccepted ? (
+                  <Button
+                    label="Mark Work as Completed"
+                    onPress={() => handleMarkCompleted(booking.id)}
+                    variant="outline"
+                  />
+                ) : isCompleted && !booking.review ? (
+                  <Button
+                    label="Rate & Review Artisan"
+                    onPress={() => openReviewModal(booking)}
+                  />
+                ) : null}
+              </Card>
+            );
+          })}
+        </View>
       )}
 
-      {/* Leave Review Modal */}
-      <Modal visible={reviewModalVisible} title="Rate Artisan Service" onClose={() => setReviewModalVisible(false)}>
-        {errorMsg ? (
-          <Text style={[styles.errorBox, { backgroundColor: colors.dangerBackground, color: colors.danger }]}>
-            {errorMsg}
-          </Text>
-        ) : null}
+      {/* Leave Review Sheet */}
+      <Sheet
+        visible={reviewModalVisible}
+        title="Rate Artisan Service"
+        onClose={() => setReviewModalVisible(false)}
+        footer={
+          <Button
+            label="Submit Rating"
+            onPress={handleReviewSubmit}
+            loading={submittingReview}
+            size="lg"
+          />
+        }
+      >
+        {errorMsg ? <Text variant="body" color={tokens.colors.danger}>{errorMsg}</Text> : null}
 
-        <Text style={[styles.modalSubtitle, { color: colors.textSecondary }]}>
+        <Text variant="body" color={tokens.colors.textMuted} style={styles.centered}>
           How satisfied were you with the quality of craftsmanship, speed, and professionalism?
         </Text>
 
-        <View style={{ alignItems: 'center', marginVertical: spacing.lg }}>
-          <RatingStars rating={rating} onRatingChange={setRating} size={32} showText={false} />
-          <Text style={[styles.ratingLabel, { color: colors.accent }]}>{rating} out of 5 Stars</Text>
+        <View style={styles.ratingPicker}>
+          <Rating value={rating} onChange={setRating} size={tokens.iconSizes.lg} />
+          <Text variant="subheading" color={tokens.colors.accent}>{rating} out of 5 stars</Text>
         </View>
 
         <Input
-          label="Review Feedback Comment"
+          label="Review comment"
           placeholder="e.g. Excellent work, neat pipe work and polite behavior."
           value={comment}
           onChangeText={setComment}
           multiline
           numberOfLines={3}
-          style={{ height: 70, textAlignVertical: 'top' }}
         />
-
-        <Button
-          title="Submit Rating"
-          onPress={handleReviewSubmit}
-          loading={submittingReview}
-          variant="primary"
-          size="lg"
-          style={{ marginTop: spacing.lg }}
-        />
-      </Modal>
+      </Sheet>
     </ScrollView>
   );
 };
@@ -244,95 +287,69 @@ export const CustomerBookingsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: tokens.colors.background,
   },
   contentContainer: {
-    padding: spacing.lg,
+    paddingHorizontal: tokens.spacing[5],
+    paddingTop: tokens.spacing[2],
+    paddingBottom: tokens.spacing[6],
+    gap: tokens.spacing[4],
   },
-  title: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.lg,
+  titleBlock: {
+    gap: tokens.spacing[1],
   },
-  loadingText: {
-    textAlign: 'center',
-    marginVertical: spacing.xl,
+  list: {
+    gap: tokens.spacing[3],
   },
-  emptyText: {
-    textAlign: 'center',
-    padding: spacing.md,
+  cardBody: {
+    gap: tokens.spacing[3],
   },
   bookingHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
+    alignItems: 'flex-start',
+    gap: tokens.spacing[2],
   },
+  // minWidth: 0 lets a long title wrap inside the row instead of pushing the badge out.
   bookingTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
     flex: 1,
+    minWidth: 0,
   },
-  description: {
-    fontSize: typography.fontSize.sm,
-    marginBottom: spacing.xs,
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: tokens.spacing[3],
   },
-  locationText: {
-    fontSize: typography.fontSize.xs,
-    marginBottom: spacing.md,
+  address: {
+    flex: 1,
+    minWidth: 0,
   },
-  bidsSection: {
-    borderTopWidth: 1,
-    paddingTop: spacing.md,
-  },
-  bidsTitle: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.sm,
-  },
-  noBidsText: {
-    fontSize: typography.fontSize.xs,
-    fontStyle: 'italic',
+  budget: {
+    alignItems: 'flex-end',
   },
   bidCard: {
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
+    padding: tokens.spacing[3],
+    borderRadius: tokens.radii.md,
     borderWidth: 1,
-    marginBottom: spacing.sm,
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surfaceRaised,
+    gap: tokens.spacing[2],
   },
   bidHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
+    gap: tokens.spacing[2],
   },
   bidArtisan: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.bold,
+    flex: 1,
+    minWidth: 0,
   },
-  bidPrice: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-  },
-  bidNotes: {
-    fontSize: typography.fontSize.xs,
-    marginVertical: spacing.xs,
-  },
-  errorBox: {
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    fontSize: typography.fontSize.sm,
-    marginBottom: spacing.md,
-  },
-  modalSubtitle: {
-    fontSize: typography.fontSize.sm,
+  centered: {
     textAlign: 'center',
   },
-  ratingLabel: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    marginTop: spacing.xs,
-  }
+  ratingPicker: {
+    alignItems: 'center',
+    gap: tokens.spacing[1],
+  },
 });

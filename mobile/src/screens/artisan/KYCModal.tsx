@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
-import { Modal } from '../../components/ui/Modal';
-import { Input } from '../../components/ui/Input';
-import { Button } from '../../components/ui/Button';
-import { api } from '../../services/api';
-import { spacing, typography, borderRadius } from '../../theme/spacing';
+import { tokens } from '../../theme/tokens';
+import { Button, Chip, Input, Sheet, Text } from '../../components/ui/foundation';
 import { Icon } from '../../components/ui/Icon';
+import { api } from '../../services/api';
 
 interface KYCModalProps {
   visible: boolean;
@@ -15,7 +13,7 @@ interface KYCModalProps {
 }
 
 export const KYCModal: React.FC<KYCModalProps> = ({ visible, onClose, onSuccess }) => {
-  const { colors, token } = useTheme();
+  const { token } = useTheme();
   const [idType, setIdType] = useState<'NIN' | 'BVN'>('NIN');
   const [idToken, setIdToken] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,63 +44,55 @@ export const KYCModal: React.FC<KYCModalProps> = ({ visible, onClose, onSuccess 
   };
 
   return (
-    <Modal visible={visible} title="NIN / BVN Identity Verification" onClose={onClose}>
+    <Sheet
+      visible={visible}
+      title="NIN / BVN Identity Verification"
+      onClose={onClose}
+      footer={submitted ? (
+        <Button
+          label="Done"
+          onPress={() => { setSubmitted(false); setIdToken(''); onClose(); }}
+          size="lg"
+        />
+      ) : (
+        <Button
+          label="Submit Verification Token"
+          onPress={handleSubmitKYC}
+          loading={loading}
+          size="lg"
+        />
+      )}
+    >
       {submitted ? (
-        <View style={{ alignItems: 'center', padding: spacing.md }}>
-          <Icon name="shield-check-outline" size={44} color={colors.success} />
-          <Text style={[styles.successTitle, { color: colors.textPrimary }]}>Identity Token Submitted</Text>
-          <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>
+        <View style={styles.success}>
+          <View style={styles.successIcon}>
+            <Icon name="shield-check-outline" size={tokens.iconSizes.lg} color={tokens.colors.success} />
+          </View>
+          <Text variant="heading" style={styles.centered}>Identity Token Submitted</Text>
+          <Text variant="body" color={tokens.colors.textMuted} style={styles.centered}>
             Your {idType} verification token ({idToken}) has been logged for administrative approval. Your profile status will display "APPROVED" once verified.
           </Text>
-          <Button
-            title="Done"
-            onPress={() => { setSubmitted(false); setIdToken(''); onClose(); }}
-            variant="primary"
-            size="md"
-            style={{ marginTop: spacing.xl }}
-          />
         </View>
       ) : (
-        <View>
-          {errorMsg ? (
-            <Text style={[styles.errorBox, { backgroundColor: colors.dangerBackground, color: colors.danger }]}>
-              {errorMsg}
-            </Text>
-          ) : null}
+        <>
+          {errorMsg ? <Text variant="body" color={tokens.colors.danger}>{errorMsg}</Text> : null}
 
-          <Text style={[styles.label, { color: colors.textSecondary }]}>Identity Verification Document Type</Text>
-          <View style={styles.typeRow}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setIdType('NIN')}
-              style={[
-                styles.typePill,
-                {
-                  backgroundColor: idType === 'NIN' ? colors.primary : colors.inputBackground,
-                  borderColor: idType === 'NIN' ? colors.primary : colors.inputBorder,
-                }
-              ]}
-            >
-              <Text style={[styles.typeText, { color: idType === 'NIN' ? '#FFFFFF' : colors.textPrimary }]}>
-                National Identity (NIN)
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => setIdType('BVN')}
-              style={[
-                styles.typePill,
-                {
-                  backgroundColor: idType === 'BVN' ? colors.primary : colors.inputBackground,
-                  borderColor: idType === 'BVN' ? colors.primary : colors.inputBorder,
-                }
-              ]}
-            >
-              <Text style={[styles.typeText, { color: idType === 'BVN' ? '#FFFFFF' : colors.textPrimary }]}>
-                Bank Verification (BVN)
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.group}>
+            <Text variant="meta" color={tokens.colors.textMuted}>Identity Verification Document Type</Text>
+            <View style={styles.typeRow}>
+              <Chip
+                label="National Identity (NIN)"
+                selected={idType === 'NIN'}
+                onPress={() => setIdType('NIN')}
+                style={styles.typeChip}
+              />
+              <Chip
+                label="Bank Verification (BVN)"
+                selected={idType === 'BVN'}
+                onPress={() => setIdType('BVN')}
+                style={styles.typeChip}
+              />
+            </View>
           </View>
 
           <Input
@@ -111,57 +101,40 @@ export const KYCModal: React.FC<KYCModalProps> = ({ visible, onClose, onSuccess 
             value={idToken}
             onChangeText={setIdToken}
           />
-
-          <Button
-            title="Submit Verification Token"
-            onPress={handleSubmitKYC}
-            loading={loading}
-            variant="primary"
-            size="lg"
-            style={{ marginTop: spacing.lg }}
-          />
-        </View>
+        </>
       )}
-    </Modal>
+    </Sheet>
   );
 };
 
 const styles = StyleSheet.create({
-  errorBox: {
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    fontSize: typography.fontSize.sm,
-    marginBottom: spacing.md,
+  success: {
+    alignItems: 'center',
+    gap: tokens.spacing[2],
   },
-  label: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-    marginBottom: spacing.xs,
+  successIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: tokens.radii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+  },
+  centered: {
+    textAlign: 'center',
+  },
+  group: {
+    gap: tokens.spacing[2],
   },
   typeRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
+    gap: tokens.spacing[2],
   },
-  typePill: {
+  // minWidth: 0 lets the two pills split the row evenly instead of sizing to their labels.
+  typeChip: {
     flex: 1,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    alignItems: 'center',
+    minWidth: 0,
   },
-  typeText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
-  },
-  successTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-  },
-  successSubtitle: {
-    fontSize: typography.fontSize.sm,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-    lineHeight: typography.lineHeight.base,
-  }
 });

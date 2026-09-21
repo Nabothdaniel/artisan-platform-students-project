@@ -1,14 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { useTheme } from '../../theme/ThemeContext';
-import { Modal } from '../../components/ui/Modal';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { Avatar } from '../../components/ui/Avatar';
-import { Card } from '../../components/ui/Card';
-import { RatingStars } from '../../components/ui/RatingStars';
+import { View, StyleSheet } from 'react-native';
+import { tokens } from '../../theme/tokens';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Divider,
+  ExpandableText,
+  Rating,
+  SectionHeader,
+  Sheet,
+  Skeleton,
+  Text,
+} from '../../components/ui/foundation';
+import { Icon, IconName } from '../../components/ui/Icon';
 import { api } from '../../services/api';
-import { spacing, typography } from '../../theme/spacing';
+
+/** One line of the key-facts card: round icon, label, value. */
+const FactRow: React.FC<{ icon: IconName; label: string; value: string }> = ({ icon, label, value }) => (
+  <View style={styles.factRow}>
+    <View style={styles.factIcon}>
+      <Icon name={icon} size={tokens.iconSizes.sm} color={tokens.colors.textMuted} />
+    </View>
+    <Text variant="body" color={tokens.colors.textMuted}>{label}</Text>
+    <Text variant="body" numberOfLines={1} style={styles.factValue}>{value}</Text>
+  </View>
+);
 
 interface ArtisanDetailModalProps {
   artisan: any | null;
@@ -23,7 +41,6 @@ export const ArtisanDetailModal: React.FC<ArtisanDetailModalProps> = ({
   onClose,
   onBookPress
 }) => {
-  const { colors } = useTheme();
   const [reviews, setReviews] = useState<any[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
 
@@ -44,178 +61,169 @@ export const ArtisanDetailModal: React.FC<ArtisanDetailModalProps> = ({
   const testPassed = profile.skill_test_status === 'passed';
 
   return (
-    <Modal visible={visible} title="Artisan Profile" onClose={onClose}>
-      <ScrollView style={{ maxHeight: 520 }} contentContainerStyle={{ paddingBottom: spacing.md }}>
-        {/* Header Profile Info */}
-        <View style={styles.profileHeader}>
-          <Avatar name={artisan.name} size={64} />
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.name, { color: colors.textPrimary }]}>{artisan.name}</Text>
-            <Text style={[styles.trade, { color: colors.textSecondary }]}>
-              {profile.trade_category || 'General Skilled Labor'} • {artisan.location_name || 'Keffi'}
-            </Text>
-            <View style={styles.badgeRow}>
-              {isVerified ? (
-                <Badge label="NIN/BVN Verified" variant="verified" />
-              ) : (
-                <Badge label="Unverified ID" variant="pending" />
-              )}
-              {testPassed ? (
-                <Badge label="Skill Test Passed" variant="passed" />
-              ) : (
-                <Badge label="Skill Quiz Pending" variant="pending" />
-              )}
-            </View>
-          </View>
+    <Sheet
+      visible={visible}
+      title="Artisan details"
+      onClose={onClose}
+      footer={
+        <Button
+          label={`Book ${artisan.name.split(' ')[0]}`}
+          onPress={() => { onClose(); onBookPress(artisan); }}
+          size="lg"
+        />
+      }
+    >
+      {/* Header Profile Info */}
+      <View style={styles.profileHeader}>
+        <Avatar name={artisan.name} size={64} verified={isVerified} />
+        <View style={styles.profileInfo}>
+          <Text variant="heading" numberOfLines={1}>{artisan.name}</Text>
+          <Rating value={profile.rating_avg || 5.0} count={profile.rating_count || 0} />
         </View>
+      </View>
 
-        {/* Pricing & Experience Stat Box */}
-        <View style={[styles.statsContainer, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: colors.primary }]}>
-              ₦{(profile.hourly_rate || 3500).toLocaleString()}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>Hourly Rate</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: colors.textPrimary }]}>
-              {profile.years_experience || 3} Yrs
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>Experience</Text>
-          </View>
-          <View style={[styles.statDivider, { backgroundColor: colors.divider }]} />
-          <View style={styles.statBox}>
-            <Text style={[styles.statValue, { color: colors.accent }]}>
-              {(profile.rating_avg || 5.0).toFixed(1)}
-            </Text>
-            <Text style={[styles.statLabel, { color: colors.textMuted }]}>
-              {profile.rating_count || 0} Reviews
-            </Text>
-          </View>
+      <View style={styles.badgeRow}>
+        {isVerified ? (
+          <Badge label="NIN/BVN Verified" variant="success" size="sm" dot />
+        ) : (
+          <Badge label="Unverified ID" variant="warning" size="sm" />
+        )}
+        {testPassed ? (
+          <Badge label="Skill Test Passed" variant="accent" size="sm" />
+        ) : (
+          <Badge label="Skill Quiz Pending" variant="warning" size="sm" />
+        )}
+      </View>
+
+      {/* Key facts */}
+      <Card style={styles.facts}>
+        <FactRow icon="briefcase-outline" label="Trade" value={profile.trade_category || 'General Skilled Labor'} />
+        <Divider />
+        <FactRow icon="map-marker-outline" label="Location" value={artisan.location_name || 'Keffi'} />
+        <Divider />
+        <FactRow icon="clipboard-check-outline" label="Experience" value={`${profile.years_experience || 3} Yrs`} />
+      </Card>
+
+      {/* Price row */}
+      <Card style={styles.priceRow}>
+        <View style={styles.priceLabel}>
+          <Text variant="subheading">Hourly rate</Text>
+          <Text variant="meta" color={tokens.colors.textMuted}>Final price is agreed in the booking</Text>
         </View>
+        <View style={styles.priceValue}>
+          <Text variant="heading">₦{(profile.hourly_rate || 3500).toLocaleString()}</Text>
+          <Text variant="meta" color={tokens.colors.textMuted}>per hour</Text>
+        </View>
+      </Card>
 
-        {/* Bio */}
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>About Artisan</Text>
-        <Text style={[styles.bio, { color: colors.textSecondary }]}>
+      {/* Bio */}
+      <View>
+        <SectionHeader title="About" />
+        <ExpandableText variant="body" color={tokens.colors.textMuted} lines={3}>
           {profile.bio || 'Professional and background-verified artisan dedicated to providing high quality craftsmanship, punctual service delivery, and reliable job completion.'}
-        </Text>
+        </ExpandableText>
+      </View>
 
-        {/* Customer Reviews Section */}
-        <Text style={[styles.sectionTitle, { color: colors.textPrimary, marginTop: spacing.lg }]}>
-          Customer Reviews ({reviews.length})
-        </Text>
+      {/* Customer Reviews Section */}
+      <View style={styles.reviews}>
+        <SectionHeader title={`Customer Reviews (${reviews.length})`} />
 
         {loadingReviews ? (
-          <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading reviews...</Text>
+          <Card style={styles.review}>
+            <Skeleton width="50%" />
+            <Skeleton />
+          </Card>
         ) : reviews.length === 0 ? (
-          <Text style={[styles.emptyText, { color: colors.textMuted }]}>No reviews submitted yet for this artisan.</Text>
+          <Text variant="meta" color={tokens.colors.textMuted}>No reviews submitted yet for this artisan.</Text>
         ) : (
           reviews.map(rev => (
-            <Card key={rev.id} style={{ marginVertical: spacing.xs }}>
+            <Card key={rev.id} style={styles.review}>
               <View style={styles.reviewHeader}>
-                <Text style={[styles.reviewerName, { color: colors.textPrimary }]}>
+                <Text variant="subheading" numberOfLines={1} style={styles.reviewerName}>
                   Customer #{rev.customer_id}
                 </Text>
-                <RatingStars rating={rev.rating} size={14} />
+                <Rating value={rev.rating} />
               </View>
               {rev.comment && (
-                <Text style={[styles.reviewComment, { color: colors.textSecondary }]}>
+                <ExpandableText variant="meta" color={tokens.colors.textMuted} lines={4}>
                   "{rev.comment}"
-                </Text>
+                </ExpandableText>
               )}
             </Card>
           ))
         )}
-
-        {/* Hire Action */}
-        <View style={{ marginTop: spacing.xl }}>
-          <Button
-            title={`Book Service Request with ${artisan.name.split(' ')[0]}`}
-            onPress={() => { onClose(); onBookPress(artisan); }}
-            variant="primary"
-            size="lg"
-          />
-        </View>
-      </ScrollView>
-    </Modal>
+      </View>
+    </Sheet>
   );
 };
 
 const styles = StyleSheet.create({
   profileHeader: {
     flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
+    alignItems: 'center',
+    gap: tokens.spacing[4],
   },
-  name: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-  },
-  trade: {
-    fontSize: typography.fontSize.sm,
-    marginVertical: spacing.xs,
+  // minWidth: 0 lets a long name truncate instead of widening the row.
+  profileInfo: {
+    flex: 1,
+    minWidth: 0,
   },
   badgeRow: {
     flexDirection: 'row',
-    gap: spacing.xs,
-    marginTop: spacing.xs,
     flexWrap: 'wrap',
+    gap: tokens.spacing[2],
   },
-  statsContainer: {
+  facts: {
+    gap: tokens.spacing[2],
+  },
+  factRow: {
+    minHeight: 44,
     flexDirection: 'row',
-    borderRadius: 12,
-    padding: spacing.md,
-    borderWidth: 1,
-    marginBottom: spacing.lg,
-  },
-  statBox: {
-    flex: 1,
     alignItems: 'center',
+    gap: tokens.spacing[3],
   },
-  statValue: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
+  factIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: tokens.radii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
   },
-  statLabel: {
-    fontSize: typography.fontSize.xs,
-    marginTop: 2,
+  factValue: {
+    flex: 1,
+    minWidth: 0,
+    textAlign: 'right',
   },
-  statDivider: {
-    width: 1,
-    height: '100%',
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: tokens.spacing[3],
   },
-  sectionTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.xs,
+  priceLabel: {
+    flex: 1,
+    minWidth: 0,
   },
-  bio: {
-    fontSize: typography.fontSize.sm,
-    lineHeight: typography.lineHeight.base,
+  priceValue: {
+    alignItems: 'flex-end',
   },
-  loadingText: {
-    fontSize: typography.fontSize.xs,
-    textAlign: 'center',
-    marginVertical: spacing.md,
+  reviews: {
+    gap: tokens.spacing[2],
   },
-  emptyText: {
-    fontSize: typography.fontSize.xs,
-    fontStyle: 'italic',
-    marginVertical: spacing.sm,
+  review: {
+    gap: tokens.spacing[1],
   },
   reviewHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    justifyContent: 'space-between',
+    gap: tokens.spacing[2],
   },
   reviewerName: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.bold,
+    flex: 1,
+    minWidth: 0,
   },
-  reviewComment: {
-    fontSize: typography.fontSize.xs,
-    fontStyle: 'italic',
-  }
 });

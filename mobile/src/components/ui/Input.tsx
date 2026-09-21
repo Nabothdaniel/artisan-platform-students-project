@@ -72,13 +72,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.md,
-    height: 48,
+    height: 52,
     gap: spacing.sm,
   },
   input: {
     flex: 1,
     fontSize: typography.fontSize.base,
     height: '100%',
+    paddingVertical: spacing.sm,
   },
   error: {
     fontSize: typography.fontSize.xs,

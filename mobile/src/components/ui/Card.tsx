@@ -17,11 +17,14 @@ export const Card: React.FC<CardProps> = ({ children, style, onPress, bordered =
     backgroundColor: colors.cardBackground,
     borderColor: bordered ? colors.cardBorder : 'transparent',
     borderWidth: bordered ? 1 : 0,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginVertical: spacing.sm,
     shadowColor: colors.shadowColor,
-    ...(isDarkMode ? {} : shadows.sm),
+    shadowOffset: { width: 0, height: isDarkMode ? 6 : 4 },
+    shadowOpacity: isDarkMode ? 0.18 : 0.08,
+    shadowRadius: isDarkMode ? 14 : 10,
+    elevation: isDarkMode ? 6 : 4,
   };
 
   if (onPress) {

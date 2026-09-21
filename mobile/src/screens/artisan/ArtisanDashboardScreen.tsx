@@ -1,18 +1,49 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { Input } from '../../components/ui/Input';
-import { Modal } from '../../components/ui/Modal';
+import { tokens } from '../../theme/tokens';
+import {
+  Badge,
+  BadgeVariant,
+  Button,
+  Card,
+  Divider,
+  EmptyState,
+  Input,
+  SectionHeader,
+  Sheet,
+  Skeleton,
+  Text,
+  useToast,
+} from '../../components/ui/foundation';
 import { SkillQuizModal } from './SkillQuizModal';
 import { KYCModal } from './KYCModal';
 import { api } from '../../services/api';
-import { spacing, typography, borderRadius } from '../../theme/spacing';
+
+const STATUS_LABEL: Record<string, string> = {
+  requested: 'Requested',
+  bidding_open: 'Bidding open',
+  accepted: 'Accepted',
+  in_progress: 'In progress',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
+
+const statusVariant = (status: string): BadgeVariant =>
+  status === 'completed' ? 'success'
+    : status === 'accepted' || status === 'in_progress' ? 'accent'
+      : status === 'cancelled' ? 'danger'
+        : 'warning';
+
+const EMERGENCY_LABEL: Record<string, string> = {
+  low: 'Low urgency',
+  medium: 'Medium urgency',
+  high: 'Urgent',
+};
 
 export const ArtisanDashboardScreen: React.FC = () => {
-  const { colors, token, user } = useTheme();
+  const { token, user, requireAuth } = useTheme();
+  const toast = useToast();
   const [openJobs, setOpenJobs] = useState<any[]>([]);
   const [myBidsBookings, setMyBidsBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,7 +92,7 @@ export const ArtisanDashboardScreen: React.FC = () => {
   const handleOpenBidModal = (job: any) => {
     setSelectedJob(job);
     setProposedPrice(job.budget ? job.budget.toString() : '4000');
-    setBidModalVisible(true);
+    requireAuth(() => setBidModalVisible(true));
   };
 
   const handleSubmitBid = async () => {
@@ -79,6 +110,7 @@ export const ArtisanDashboardScreen: React.FC = () => {
         token
       );
       setBidModalVisible(false);
+      toast.success('Quote sent to the customer.');
       loadData();
     } catch (err: any) {
       setBidError(err.message || 'Failed to submit bid quote.');
@@ -93,133 +125,160 @@ export const ArtisanDashboardScreen: React.FC = () => {
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} />}
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          tintColor={tokens.colors.textMuted}
+          onRefresh={() => { setRefreshing(true); loadData(); }}
+        />
+      }
       contentContainerStyle={styles.contentContainer}
     >
-      <Text style={[styles.title, { color: colors.textPrimary }]}>Artisan Workspace & Job Feed</Text>
+      <View style={styles.titleBlock}>
+        <Text variant="title">Job Feed</Text>
+        <Text variant="body" color={tokens.colors.textMuted}>Get verified, then quote on open customer jobs.</Text>
+      </View>
 
-      {/* Verification Gate Cards */}
-      <Card style={styles.verificationCard}>
-        <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
-          Identity & Trade Verification Gates
-        </Text>
-        <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>
-          Complete mandatory NIN/BVN verification and trade skill competency testing to get verified.
-        </Text>
-
-        <View style={styles.gateRow}>
-          <View style={styles.gateItem}>
-            <View style={styles.gateStatusRow}>
-              <Text style={[styles.gateName, { color: colors.textPrimary }]}>NIN/BVN Identity</Text>
-              <Badge
-                label={isKycApproved ? 'APPROVED' : 'PENDING'}
-                variant={isKycApproved ? 'verified' : 'pending'}
-              />
-            </View>
-            {!isKycApproved && (
-              <Button
-                title="Verify NIN/BVN"
-                onPress={() => setKycModalVisible(true)}
-                variant="outline"
-                size="sm"
-                style={{ marginTop: spacing.xs }}
-              />
-            )}
-          </View>
-
-          <View style={[styles.gateDivider, { backgroundColor: colors.divider }]} />
-
-          <View style={styles.gateItem}>
-            <View style={styles.gateStatusRow}>
-              <Text style={[styles.gateName, { color: colors.textPrimary }]}>Competency Test</Text>
-              <Badge
-                label={isSkillPassed ? 'PASSED' : 'NOT PASSED'}
-                variant={isSkillPassed ? 'passed' : 'pending'}
-              />
-            </View>
-            {!isSkillPassed && (
-              <Button
-                title="Take Skill Quiz"
-                onPress={() => setQuizModalVisible(true)}
-                variant="outline"
-                size="sm"
-                style={{ marginTop: spacing.xs }}
-              />
-            )}
-          </View>
+      {/* Verification Gates */}
+      <Card style={styles.cardBody}>
+        <View style={styles.cardIntro}>
+          <Text variant="subheading">Identity & Trade Verification</Text>
+          <Text variant="meta" color={tokens.colors.textMuted}>
+            Complete mandatory NIN/BVN verification and trade skill competency testing to get verified.
+          </Text>
         </View>
+
+        <View style={styles.gateStatusRow}>
+          <Text variant="body" style={styles.rowText}>NIN/BVN Identity</Text>
+          <Badge
+            label={isKycApproved ? 'Approved' : 'Pending'}
+            variant={isKycApproved ? 'success' : 'warning'}
+            size="sm"
+            dot
+          />
+        </View>
+        {!isKycApproved && (
+          <Button
+            label="Verify NIN/BVN"
+            onPress={() => requireAuth(() => setKycModalVisible(true))}
+            variant="outline"
+            size="sm"
+          />
+        )}
+
+        <Divider />
+
+        <View style={styles.gateStatusRow}>
+          <Text variant="body" style={styles.rowText}>Competency Test</Text>
+          <Badge
+            label={isSkillPassed ? 'Passed' : 'Not passed'}
+            variant={isSkillPassed ? 'accent' : 'warning'}
+            size="sm"
+            dot
+          />
+        </View>
+        {!isSkillPassed && (
+          <Button
+            label="Take Skill Quiz"
+            onPress={() => requireAuth(() => setQuizModalVisible(true))}
+            variant="outline"
+            size="sm"
+          />
+        )}
       </Card>
 
       {/* Active Submitted Bids & Jobs */}
       {myBidsBookings.length > 0 && (
-        <View style={{ marginBottom: spacing.lg }}>
-          <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-            My Active Bids & Assigned Jobs ({myBidsBookings.length})
-          </Text>
-          {myBidsBookings.map(job => (
-            <Card key={job.id}>
-              <View style={styles.jobHeader}>
-                <Text style={[styles.jobTitle, { color: colors.textPrimary }]}>{job.title}</Text>
-                <Badge label={job.status.toUpperCase()} variant={job.status === 'accepted' ? 'verified' : 'category'} />
-              </View>
-              <Text style={[styles.jobDesc, { color: colors.textSecondary }]}>{job.description}</Text>
-              <Text style={[styles.jobMeta, { color: colors.textMuted }]}>
-                {job.address} • Agreed Price: ₦{(job.agreed_price || job.budget || 0).toLocaleString()}
-              </Text>
-            </Card>
-          ))}
+        <View style={styles.section}>
+          <SectionHeader title={`My bids & jobs (${myBidsBookings.length})`} />
+          <View style={styles.list}>
+            {myBidsBookings.map(job => (
+              <Card key={job.id} style={styles.cardBody}>
+                <View style={styles.jobHeader}>
+                  <Text variant="subheading" style={styles.rowText}>{job.title}</Text>
+                  <Badge label={STATUS_LABEL[job.status] ?? job.status} variant={statusVariant(job.status)} size="sm" />
+                </View>
+                <Text variant="body" color={tokens.colors.textMuted}>{job.description}</Text>
+                <View style={styles.metaRow}>
+                  <Text variant="meta" color={tokens.colors.textMuted} style={styles.rowText} numberOfLines={2}>
+                    {job.address}
+                  </Text>
+                  <View style={styles.amount}>
+                    <Text variant="heading">₦{(job.agreed_price || job.budget || 0).toLocaleString()}</Text>
+                    <Text variant="meta" color={tokens.colors.textMuted}>agreed price</Text>
+                  </View>
+                </View>
+              </Card>
+            ))}
+          </View>
         </View>
       )}
 
       {/* Open Customer Jobs Feed */}
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-        Open Service Requests ({openJobs.length})
-      </Text>
+      <View style={styles.section}>
+        <SectionHeader title={loading ? 'Open requests' : `${openJobs.length} open requests`} />
 
-      {loading ? (
-        <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading open jobs...</Text>
-      ) : errorMessage ? (
-        <Card bordered>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{errorMessage}</Text>
-          <Button title="Try Again" onPress={loadData} variant="outline" size="md" />
-        </Card>
-      ) : openJobs.length === 0 ? (
-        <Card bordered>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No open customer job requests at the moment. Pull down to refresh.
-          </Text>
-        </Card>
-      ) : (
-        openJobs.map(job => (
-          <Card key={job.id}>
-            <View style={styles.jobHeader}>
-              <Text style={[styles.jobTitle, { color: colors.textPrimary }]}>{job.title}</Text>
-              <Badge
-                label={job.emergency_level ? job.emergency_level.toUpperCase() : 'STANDARD'}
-                variant={job.emergency_level === 'high' ? 'emergency' : 'category'}
-              />
-            </View>
-
-            <Text style={[styles.jobDesc, { color: colors.textSecondary }]}>{job.description}</Text>
-            <Text style={[styles.jobMeta, { color: colors.textMuted }]}>
-              {job.address} • Target Budget: ₦{(job.budget || 0).toLocaleString()}
-            </Text>
-
-            <View style={[styles.jobFooter, { borderTopColor: colors.divider }]}>
-              <Text style={[styles.bidsCount, { color: colors.textSecondary }]}>
-                {(job.bids || []).length} Bids Submitted
-              </Text>
-              <Button
-                title="Submit Price Quote"
-                onPress={() => handleOpenBidModal(job)}
-                variant="primary"
-                size="sm"
-              />
-            </View>
+        {loading ? (
+          <View style={styles.list}>
+            {[0, 1].map(i => (
+              <Card key={i} style={styles.cardBody}>
+                <Skeleton width="70%" height={20} />
+                <Skeleton />
+                <Skeleton width="50%" height={12} />
+              </Card>
+            ))}
+          </View>
+        ) : errorMessage ? (
+          <Card>
+            <EmptyState title="Couldn't load your workspace" description={errorMessage} />
+            <Button label="Try Again" onPress={loadData} variant="outline" />
           </Card>
-        ))
-      )}
+        ) : openJobs.length === 0 ? (
+          <Card>
+            <EmptyState
+              title="No open requests"
+              description="No open customer job requests at the moment. Pull down to refresh."
+            />
+          </Card>
+        ) : (
+          <View style={styles.list}>
+            {openJobs.map(job => (
+              <Card key={job.id} style={styles.cardBody}>
+                <View style={styles.jobHeader}>
+                  <Text variant="subheading" style={styles.rowText}>{job.title}</Text>
+                  <Badge
+                    label={job.emergency_level ? (EMERGENCY_LABEL[job.emergency_level] ?? job.emergency_level) : 'Standard'}
+                    variant={job.emergency_level === 'high' ? 'danger' : 'neutral'}
+                    size="sm"
+                  />
+                </View>
+
+                <Text variant="body" color={tokens.colors.textMuted}>{job.description}</Text>
+
+                <View style={styles.metaRow}>
+                  <Text variant="meta" color={tokens.colors.textMuted} style={styles.rowText} numberOfLines={2}>
+                    {job.address}
+                  </Text>
+                  <View style={styles.amount}>
+                    <Text variant="heading">₦{(job.budget || 0).toLocaleString()}</Text>
+                    <Text variant="meta" color={tokens.colors.textMuted}>target budget</Text>
+                  </View>
+                </View>
+
+                <Divider dashed />
+
+                <View style={styles.jobFooter}>
+                  <Text variant="meta" color={tokens.colors.textMuted} style={styles.rowText}>
+                    {(job.bids || []).length} bids submitted
+                  </Text>
+                  <Button label="Submit Quote" onPress={() => handleOpenBidModal(job)} size="sm" />
+                </View>
+              </Card>
+            ))}
+          </View>
+        )}
+      </View>
 
       {/* Quiz Modal */}
       <SkillQuizModal
@@ -235,23 +294,35 @@ export const ArtisanDashboardScreen: React.FC = () => {
         onSuccess={loadData}
       />
 
-      {/* Submit Bid Modal */}
-      <Modal visible={bidModalVisible} title="Submit Price Bid Quote" onClose={() => setBidModalVisible(false)}>
-        {bidError ? (
-          <Text style={[styles.errorBox, { backgroundColor: colors.dangerBackground, color: colors.danger }]}>
-            {bidError}
-          </Text>
-        ) : null}
+      {/* Submit Bid Sheet */}
+      <Sheet
+        visible={bidModalVisible}
+        title="Submit Price Quote"
+        onClose={() => setBidModalVisible(false)}
+        footer={
+          selectedJob ? (
+            <Button
+              label="Submit Price Quote"
+              onPress={handleSubmitBid}
+              loading={submittingBid}
+              size="lg"
+            />
+          ) : undefined
+        }
+      >
+        {bidError ? <Text variant="body" color={tokens.colors.danger}>{bidError}</Text> : null}
 
         {selectedJob && (
-          <View>
-            <Text style={[styles.modalJobTitle, { color: colors.textPrimary }]}>{selectedJob.title}</Text>
-            <Text style={[styles.modalJobMeta, { color: colors.textMuted }]}>
-              Customer Budget: ₦{(selectedJob.budget || 0).toLocaleString()}
-            </Text>
+          <>
+            <View style={styles.cardIntro}>
+              <Text variant="subheading">{selectedJob.title}</Text>
+              <Text variant="meta" color={tokens.colors.textMuted}>
+                Customer budget: ₦{(selectedJob.budget || 0).toLocaleString()}
+              </Text>
+            </View>
 
             <Input
-              label="Your Negotiable Proposed Price (₦)"
+              label="Your proposed price (₦)"
               placeholder="3800"
               keyboardType="numeric"
               value={proposedPrice}
@@ -259,7 +330,7 @@ export const ArtisanDashboardScreen: React.FC = () => {
             />
 
             <Input
-              label="Estimated Duration (Hours)"
+              label="Estimated duration (hours)"
               placeholder="2"
               keyboardType="numeric"
               value={estimatedHours}
@@ -267,26 +338,16 @@ export const ArtisanDashboardScreen: React.FC = () => {
             />
 
             <Input
-              label="Negotiation Notes / Proposal Details"
+              label="Notes / proposal details"
               placeholder="Explain materials supplied, availability, or experience..."
               value={notes}
               onChangeText={setNotes}
               multiline
               numberOfLines={3}
-              style={{ height: 65, textAlignVertical: 'top' }}
             />
-
-            <Button
-              title="Submit Price Quote"
-              onPress={handleSubmitBid}
-              loading={submittingBid}
-              variant="primary"
-              size="lg"
-              style={{ marginTop: spacing.lg }}
-            />
-          </View>
+          </>
         )}
-      </Modal>
+      </Sheet>
     </ScrollView>
   );
 };
@@ -294,102 +355,57 @@ export const ArtisanDashboardScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: tokens.colors.background,
   },
   contentContainer: {
-    padding: spacing.lg,
+    paddingHorizontal: tokens.spacing[5],
+    paddingTop: tokens.spacing[2],
+    paddingBottom: tokens.spacing[6],
+    gap: tokens.spacing[4],
   },
-  title: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.lg,
+  titleBlock: {
+    gap: tokens.spacing[1],
   },
-  verificationCard: {
-    marginBottom: spacing.xl,
+  section: {
+    gap: tokens.spacing[2],
   },
-  cardTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.xs,
+  list: {
+    gap: tokens.spacing[3],
   },
-  cardSubtitle: {
-    fontSize: typography.fontSize.xs,
-    marginBottom: spacing.md,
+  cardBody: {
+    gap: tokens.spacing[3],
   },
-  gateRow: {
-    gap: spacing.md,
-  },
-  gateItem: {
-    flex: 1,
+  cardIntro: {
+    gap: tokens.spacing[1],
   },
   gateStatusRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    gap: tokens.spacing[2],
   },
-  gateName: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.bold,
-  },
-  gateDivider: {
-    height: 1,
-    width: '100%',
-  },
-  sectionTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.md,
-  },
-  loadingText: {
-    textAlign: 'center',
-    marginVertical: spacing.xl,
-  },
-  emptyText: {
-    textAlign: 'center',
-    padding: spacing.md,
+  // minWidth: 0 lets long text wrap inside the row instead of pushing its neighbour out.
+  rowText: {
+    flex: 1,
+    minWidth: 0,
   },
   jobHeader: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: tokens.spacing[2],
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
+    gap: tokens.spacing[3],
   },
-  jobTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-    flex: 1,
-  },
-  jobDesc: {
-    fontSize: typography.fontSize.sm,
-    marginBottom: spacing.xs,
-  },
-  jobMeta: {
-    fontSize: typography.fontSize.xs,
-    marginBottom: spacing.md,
+  amount: {
+    alignItems: 'flex-end',
   },
   jobFooter: {
-    borderTopWidth: 1,
-    paddingTop: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: tokens.spacing[3],
   },
-  bidsCount: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing.sm,
-  },
-  modalJobTitle: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-  },
-  modalJobMeta: {
-    fontSize: typography.fontSize.xs,
-    marginBottom: spacing.md,
-  },
-  errorBox: {
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    fontSize: typography.fontSize.sm,
-    marginBottom: spacing.md,
-  }
 });

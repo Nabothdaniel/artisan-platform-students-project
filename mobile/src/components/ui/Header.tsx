@@ -6,10 +6,20 @@ import { Icon } from './Icon';
 
 interface HeaderProps {
   onOpenAuth: () => void;
+  onOpenProfile?: () => void;
+  onOpenShowcase?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
-  const { colors, isDarkMode, toggleTheme, role, user } = useTheme();
+export const Header: React.FC<HeaderProps> = ({ onOpenAuth, onOpenProfile, onOpenShowcase }) => {
+  const { colors, role, user } = useTheme();
+
+  const handleRolePress = () => {
+    if (user && onOpenProfile) {
+      onOpenProfile();
+      return;
+    }
+    onOpenAuth();
+  };
 
   return (
     <View style={[
@@ -20,7 +30,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
       }
     ]}>
       <View style={styles.leftSection}>
-        <Text style={[styles.logoBadge, { backgroundColor: colors.primary }]}>AH</Text>
+        <TouchableOpacity onLongPress={onOpenShowcase} delayLongPress={700} disabled={!onOpenShowcase}>
+          <Text style={[styles.logoBadge, { backgroundColor: colors.primary, color: colors.primaryForeground }]}>AH</Text>
+        </TouchableOpacity>
         <View>
           <Text style={[styles.title, { color: colors.textPrimary }]}>ArtisanHub</Text>
           <Text style={[styles.subtitle, { color: colors.textMuted }]}>
@@ -30,32 +42,27 @@ export const Header: React.FC<HeaderProps> = ({ onOpenAuth }) => {
       </View>
 
       <View style={styles.rightSection}>
-        {user ? (
-          <View style={[styles.roleButton, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}>
-            <Icon name={role === 'customer' ? 'account-outline' : role === 'artisan' ? 'hammer-wrench' : 'chart-box-outline'} size={16} color={colors.primary} />
-            <Text style={[styles.roleText, { color: colors.primary }]}>
-              {role === 'customer' ? 'Customer' : role === 'artisan' ? 'Artisan' : 'Admin'}
-            </Text>
-          </View>
-        ) : (
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={onOpenAuth}
-            style={[styles.roleButton, { backgroundColor: colors.primary, borderColor: colors.primary }]}
-          >
-            <Icon name="login-variant" size={16} color={colors.primaryForeground} />
-            <Text style={[styles.roleText, { color: colors.primaryForeground }]}>Sign in</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Theme Toggle */}
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={toggleTheme}
-          style={[styles.iconButton, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}
+          onPress={handleRolePress}
+          style={[
+            styles.roleButton,
+            {
+              backgroundColor: user ? colors.primaryLight : colors.primary,
+              borderColor: user ? colors.primary : colors.primary,
+            }
+          ]}
         >
-          <Icon name={isDarkMode ? 'weather-sunny' : 'weather-night'} size={17} color={colors.textPrimary} />
+          <Icon
+            name={user ? (role === 'customer' ? 'account-outline' : role === 'artisan' ? 'hammer-wrench' : 'chart-box-outline') : 'login-variant'}
+            size={16}
+            color={user ? colors.primary : colors.primaryForeground}
+          />
+          <Text style={[styles.roleText, { color: user ? colors.primary : colors.primaryForeground }]}>
+            {user ? (role === 'customer' ? 'Customer' : role === 'artisan' ? 'Artisan' : 'Admin') : 'Sign in'}
+          </Text>
         </TouchableOpacity>
+
       </View>
     </View>
   );
@@ -77,7 +84,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   logoBadge: {
-    color: '#FFFFFF',
     fontWeight: typography.fontWeight.bold,
     fontSize: typography.fontSize.base,
     paddingHorizontal: spacing.xs + 4,
@@ -98,6 +104,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   roleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.md,
@@ -107,15 +116,4 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.xs,
     fontWeight: typography.fontWeight.semibold,
   },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  themeIcon: {
-    fontSize: 16,
-  }
 });

@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
-import { Modal } from '../../components/ui/Modal';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { api } from '../../services/api';
-import { spacing, typography, borderRadius } from '../../theme/spacing';
+import { tokens } from '../../theme/tokens';
+import { Button, Chip, Sheet, Text, Pressable } from '../../components/ui/foundation';
 import { Icon } from '../../components/ui/Icon';
+import { api } from '../../services/api';
 
 interface SkillQuizModalProps {
   visible: boolean;
@@ -15,13 +13,15 @@ interface SkillQuizModalProps {
 }
 
 export const SkillQuizModal: React.FC<SkillQuizModalProps> = ({ visible, onClose, onSuccess }) => {
-  const { colors, token } = useTheme();
+  const { token } = useTheme();
   const [skills, setSkills] = useState<any[]>([]);
   const [selectedSkill, setSelectedSkill] = useState<any | null>(null);
   const [userAnswers, setUserAnswers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
   const [quizResult, setQuizResult] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  // UI-only: which question the wizard is showing.
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
     if (visible) {
@@ -73,190 +73,243 @@ export const SkillQuizModal: React.FC<SkillQuizModalProps> = ({ visible, onClose
     setQuizResult(null);
     setUserAnswers({});
     setErrorMsg('');
+    setStep(0);
   };
 
+  const questions: any[] = selectedSkill?.questions || [];
+  const currentQuestion = questions[step];
+  const isLastStep = step >= questions.length - 1;
+
+  const quizFooter = questions.length === 0 ? null : (
+    <View style={styles.footerRow}>
+      <Button
+        label="Back"
+        onPress={() => setStep(s => Math.max(0, s - 1))}
+        variant="outline"
+        disabled={step === 0}
+        style={styles.footerAction}
+      />
+      {isLastStep ? (
+        <Button
+          label="Submit Assessment"
+          onPress={handleSubmitQuiz}
+          loading={loading}
+          style={styles.footerAction}
+        />
+      ) : (
+        <Button
+          label="Next"
+          onPress={() => setStep(s => Math.min(questions.length - 1, s + 1))}
+          style={styles.footerAction}
+        />
+      )}
+    </View>
+  );
+
+  const resultFooter = (
+    <View style={styles.footerRow}>
+      {quizResult && !quizResult.passed ? (
+        <Button label="Retake Assessment" onPress={handleReset} variant="outline" style={styles.footerAction} />
+      ) : null}
+      <Button label="Close Quiz" onPress={() => { handleReset(); onClose(); }} style={styles.footerAction} />
+    </View>
+  );
+
+  const resultColor = quizResult?.passed ? tokens.colors.success : tokens.colors.danger;
+
   return (
-    <Modal visible={visible} title="Trade Skill Competency Quiz" onClose={onClose}>
-      <ScrollView style={{ maxHeight: 520 }}>
-        {quizResult ? (
-          <View style={{ alignItems: 'center', padding: spacing.md }}>
-            <Text style={{ fontSize: 44, marginBottom: spacing.sm }}>
-              <Icon name={quizResult.passed ? 'check-circle-outline' : 'alert-circle-outline'} size={44} color={quizResult.passed ? colors.success : colors.danger} />
-            </Text>
-            <Text style={[styles.resultTitle, { color: colors.textPrimary }]}>
-              {quizResult.passed ? 'Congratulations! Quiz Passed' : 'Assessment Threshold Not Met'}
-            </Text>
-            <Text style={[styles.scoreText, { color: quizResult.passed ? colors.success : colors.danger }]}>
-              Score: {quizResult.score_percentage}%
-            </Text>
-            <Text style={[styles.resultSubtitle, { color: colors.textSecondary }]}>
-              {quizResult.passed
-                ? 'Your trade competency profile has been updated to PASSED! Customers will see your verified badge on search.'
-                : 'Score was below the required 70% passing threshold. Please review trade best practices and try again.'}
-            </Text>
-
-            <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl }}>
-              {!quizResult.passed && (
-                <Button title="Retake Assessment" onPress={handleReset} variant="outline" size="md" />
-              )}
-              <Button title="Close Quiz" onPress={() => { handleReset(); onClose(); }} variant="primary" size="md" />
-            </View>
+    <Sheet
+      visible={visible}
+      title="Trade Skill Competency Quiz"
+      onClose={onClose}
+      footer={quizResult ? resultFooter : quizFooter}
+    >
+      {quizResult ? (
+        <View style={styles.result}>
+          <View style={styles.resultIcon}>
+            <Icon
+              name={quizResult.passed ? 'check-circle-outline' : 'alert-circle-outline'}
+              size={tokens.iconSizes.lg}
+              color={resultColor}
+            />
           </View>
-        ) : (
-          <>
-            {errorMsg ? (
-              <Text style={[styles.errorBox, { backgroundColor: colors.dangerBackground, color: colors.danger }]}>
-                {errorMsg}
-              </Text>
-            ) : null}
+          <Text variant="heading" style={styles.centered}>
+            {quizResult.passed ? 'Congratulations! Quiz Passed' : 'Assessment Threshold Not Met'}
+          </Text>
+          <Text variant="title" color={resultColor}>Score: {quizResult.score_percentage}%</Text>
+          <Text variant="body" color={tokens.colors.textMuted} style={styles.centered}>
+            {quizResult.passed
+              ? 'Your trade competency profile has been updated to PASSED! Customers will see your verified badge on search.'
+              : 'Score was below the required 70% passing threshold. Please review trade best practices and try again.'}
+          </Text>
+        </View>
+      ) : (
+        <>
+          {errorMsg ? <Text variant="body" color={tokens.colors.danger}>{errorMsg}</Text> : null}
 
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Select Trade Skill Category</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>
-              {skills.map(s => (
-                <TouchableOpacity
-                  key={s.id}
-                  onPress={() => { setSelectedSkill(s); setUserAnswers({}); }}
-                  style={[
-                    styles.skillPill,
-                    {
-                      backgroundColor: selectedSkill?.id === s.id ? colors.primary : colors.inputBackground,
-                      borderColor: selectedSkill?.id === s.id ? colors.primary : colors.inputBorder,
-                    }
-                  ]}
-                >
-                  <Text style={[styles.skillText, { color: selectedSkill?.id === s.id ? '#FFFFFF' : colors.textPrimary }]}>
-                    {s.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {selectedSkill && (
-              <View>
-                <Text style={[styles.quizInstructions, { color: colors.textMuted }]}>
-                  Answer all questions for {selectedSkill.name}. Pass mark is 70%.
-                </Text>
-
-                {(selectedSkill.questions || []).map((q: any, idx: number) => (
-                  <View key={q.id} style={[styles.questionCard, { backgroundColor: colors.inputBackground, borderColor: colors.inputBorder }]}>
-                    <Text style={[styles.questionText, { color: colors.textPrimary }]}>
-                      Q{idx + 1}: {q.question_text}
-                    </Text>
-
-                    {['A', 'B', 'C', 'D'].map(optKey => {
-                      const optionLabel = q[`option_${optKey.toLowerCase()}`];
-                      if (!optionLabel) return null;
-                      const isSelected = userAnswers[q.id] === optKey;
-
-                      return (
-                        <TouchableOpacity
-                          key={optKey}
-                          activeOpacity={0.7}
-                          onPress={() => handleOptionSelect(q.id, optKey)}
-                          style={[
-                            styles.optionRow,
-                            {
-                              backgroundColor: isSelected ? colors.primaryLight : colors.cardBackground,
-                              borderColor: isSelected ? colors.primary : colors.divider,
-                            }
-                          ]}
-                        >
-                          <Text style={[styles.optKey, { color: isSelected ? colors.primary : colors.textMuted }]}>
-                            {optKey}
-                          </Text>
-                          <Text style={[styles.optText, { color: isSelected ? colors.primary : colors.textPrimary }]}>
-                            {optionLabel}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+          {step === 0 ? (
+            <View style={styles.group}>
+              <Text variant="meta" color={tokens.colors.textMuted}>Select Trade Skill Category</Text>
+              <ScrollView
+                horizontal
+                bounces={false}
+                showsHorizontalScrollIndicator={false}
+                style={styles.skillScroll}
+                contentContainerStyle={styles.chips}
+              >
+                {skills.map(s => (
+                  <Chip
+                    key={s.id}
+                    label={s.name}
+                    selected={selectedSkill?.id === s.id}
+                    onPress={() => { setSelectedSkill(s); setUserAnswers({}); setStep(0); }}
+                  />
                 ))}
+              </ScrollView>
+            </View>
+          ) : null}
 
-                <Button
-                  title="Submit Assessment Answers"
-                  onPress={handleSubmitQuiz}
-                  loading={loading}
-                  variant="primary"
-                  size="lg"
-                  style={{ marginTop: spacing.lg }}
-                />
+          {selectedSkill && currentQuestion ? (
+            <>
+              {/* Progress: one question per step. */}
+              <View style={styles.group}>
+                <View style={styles.progressRow}>
+                  <Text variant="meta" color={tokens.colors.textMuted} style={styles.progressLabel}>
+                    Question {step + 1} of {questions.length} • {selectedSkill.name} • pass mark 70%
+                  </Text>
+                  <Text variant="meta" color={tokens.colors.textMuted}>
+                    {Object.keys(userAnswers).length}/{questions.length} answered
+                  </Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${((step + 1) / questions.length) * 100}%` }]} />
+                </View>
               </View>
-            )}
-          </>
-        )}
-      </ScrollView>
-    </Modal>
+
+              <View style={styles.questionCard}>
+                <Text variant="subheading">Q{step + 1}: {currentQuestion.question_text}</Text>
+
+                {['A', 'B', 'C', 'D'].map(optKey => {
+                  const optionLabel = currentQuestion[`option_${optKey.toLowerCase()}`];
+                  if (!optionLabel) return null;
+                  const isSelected = userAnswers[currentQuestion.id] === optKey;
+                  const optionColor = isSelected ? tokens.colors.inverseText : tokens.colors.text;
+
+                  return (
+                    <Pressable
+                      key={optKey}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected: isSelected }}
+                      onPress={() => handleOptionSelect(currentQuestion.id, optKey)}
+                      style={({ pressed }) => [
+                        styles.optionRow,
+                        isSelected ? styles.optionSelected : styles.optionIdle,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <Text variant="button" color={isSelected ? tokens.colors.inverseText : tokens.colors.textMuted}>
+                        {optKey}
+                      </Text>
+                      <Text variant="body" color={optionColor} style={styles.optText}>{optionLabel}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          ) : null}
+        </>
+      )}
+    </Sheet>
   );
 };
 
 const styles = StyleSheet.create({
-  errorBox: {
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    fontSize: typography.fontSize.sm,
-    marginBottom: spacing.md,
+  centered: {
+    textAlign: 'center',
   },
-  label: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-    marginBottom: spacing.xs,
+  group: {
+    gap: tokens.spacing[2],
   },
-  skillPill: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    marginRight: spacing.sm,
+  chips: {
+    gap: tokens.spacing[2],
   },
-  skillText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.semibold,
+  skillScroll: {
+    flexGrow: 0,
   },
-  quizInstructions: {
-    fontSize: typography.fontSize.xs,
-    marginBottom: spacing.md,
-  },
-  questionCard: {
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    marginBottom: spacing.md,
-  },
-  questionText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.md,
-  },
-  optionRow: {
+  progressRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    marginBottom: spacing.xs,
-    gap: spacing.md,
+    gap: tokens.spacing[2],
   },
-  optKey: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.bold,
+  // minWidth: 0 lets the long label wrap instead of pushing the counter off the row.
+  progressLabel: {
+    flex: 1,
+    minWidth: 0,
   },
-  optText: {
-    fontSize: typography.fontSize.xs,
+  progressTrack: {
+    height: 4,
+    borderRadius: tokens.radii.full,
+    overflow: 'hidden',
+    backgroundColor: tokens.colors.surfaceRaised,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: tokens.radii.full,
+    backgroundColor: tokens.colors.accent,
+  },
+  footerRow: {
+    flexDirection: 'row',
+    gap: tokens.spacing[3],
+  },
+  footerAction: {
     flex: 1,
   },
-  resultTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+  questionCard: {
+    padding: tokens.spacing[4],
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surfaceRaised,
+    gap: tokens.spacing[2],
   },
-  scoreText: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: typography.fontWeight.bold,
-    marginVertical: spacing.xs,
+  optionRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: tokens.spacing[4],
+    paddingVertical: tokens.spacing[3],
+    borderRadius: tokens.radii.md,
+    borderWidth: 1,
+    gap: tokens.spacing[3],
   },
-  resultSubtitle: {
-    fontSize: typography.fontSize.sm,
-    textAlign: 'center',
-    lineHeight: typography.lineHeight.base,
-  }
+  optionIdle: {
+    backgroundColor: tokens.colors.surface,
+    borderColor: tokens.colors.border,
+  },
+  optionSelected: {
+    backgroundColor: tokens.colors.inverse,
+    borderColor: tokens.colors.inverse,
+  },
+  optText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  pressed: {
+    opacity: 0.7,
+  },
+  result: {
+    alignItems: 'center',
+    gap: tokens.spacing[2],
+  },
+  resultIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: tokens.radii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceRaised,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+  },
 });

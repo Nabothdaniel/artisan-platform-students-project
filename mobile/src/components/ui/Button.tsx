@@ -46,12 +46,12 @@ export const Button: React.FC<ButtonProps> = ({
   const getTextColor = () => {
     if (disabled) return colors.textMuted;
     switch (variant) {
-      case 'primary': return '#FFFFFF';
+      case 'primary': return colors.primaryForeground;
       case 'secondary': return colors.primary;
       case 'outline': return colors.primary;
-      case 'danger': return '#FFFFFF';
+      case 'danger': return colors.primaryForeground;
       case 'ghost': return colors.textSecondary;
-      default: return '#FFFFFF';
+      default: return colors.primaryForeground;
     }
   };
 
@@ -62,7 +62,7 @@ export const Button: React.FC<ButtonProps> = ({
 
   const getPadding = () => {
     switch (size) {
-      case 'sm': return { paddingVertical: spacing.xs + 2, paddingHorizontal: spacing.md };
+      case 'sm': return { paddingVertical: spacing.sm + 2, paddingHorizontal: spacing.md };
       case 'lg': return { paddingVertical: spacing.lg, paddingHorizontal: spacing.xl };
       default: return { paddingVertical: spacing.md, paddingHorizontal: spacing.lg };
     }
@@ -117,8 +117,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: borderRadius.md,
     gap: spacing.sm,
+    minHeight: 42,
   },
   text: {
     fontWeight: typography.fontWeight.semibold,
+    letterSpacing: 0.2,
   }
 });

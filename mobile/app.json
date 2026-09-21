@@ -4,12 +4,12 @@
     "slug": "artisanhub-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0f172a"
+      "backgroundColor": "#0B0B0C"
     },
     "assetBundlePatterns": [
       "**/*"
@@ -28,6 +28,9 @@
       "package": "com.artisanhub.mobile"
     },
     "web": {},
-    "owner": "dannytheewebdev"
+    "owner": "dannytheewebdev",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

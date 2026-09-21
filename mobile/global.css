@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Web only — the native runtime ignores these selectors.
+ * Stops a stray wide element from turning into page-level horizontal scroll
+ * when the app is served by `expo start --web`.
+ */
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+}

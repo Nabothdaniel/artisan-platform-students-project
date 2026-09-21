@@ -1,30 +1,19 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
-import { Modal } from '../../components/ui/Modal';
-import { Input } from '../../components/ui/Input';
-import { Button } from '../../components/ui/Button';
-import { api } from '../../services/api';
-import { spacing, borderRadius } from '../../theme/spacing';
-import { typography } from '../../theme/typography';
+import { tokens } from '../../theme/tokens';
+import { Badge, Button, Chip, ConfirmDialog, Input, Sheet, Text } from '../../components/ui/foundation';
 import { Icon } from '../../components/ui/Icon';
+import { api } from '../../services/api';
+import { SAMPLE_ACCOUNTS } from './demoAccounts';
 
 interface AuthModalProps {
   visible: boolean;
   onClose: () => void;
 }
 
-const SAMPLE_ACCOUNTS = [
-  { label: 'Customer (Amina)', email: 'amina@gmail.com', pass: 'password123', role: 'customer' },
-  { label: 'Customer (Emeka)', email: 'emeka@gmail.com', pass: 'password123', role: 'customer' },
-  { label: 'Artisan (Tunde - Plumber)', email: 'tunde@plumbing.ng', pass: 'password123', role: 'artisan' },
-  { label: 'Artisan (Ibrahim - Electrician)', email: 'ibrahim@sparks.ng', pass: 'password123', role: 'artisan' },
-  { label: 'Artisan (Chidi - Carpenter)', email: 'chidi@woodcraft.ng', pass: 'password123', role: 'artisan' },
-  { label: 'System Admin', email: 'admin@artisanhub.ng', pass: 'password123', role: 'admin' },
-];
-
 export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
-  const { colors, loginSession, user, logoutSession } = useTheme();
+  const { loginSession, user, logoutSession } = useTheme();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -33,6 +22,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
   const [tradeCategory, setTradeCategory] = useState('Plumbing');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
 
   const handleQuickLogin = (acct: any) => {
     setEmail(acct.email);
@@ -91,174 +81,153 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
   };
 
   return (
-    <Modal visible={visible} title={user ? 'User Account Session' : isRegister ? 'Create ArtisanHub Account' : 'Account Authentication'} onClose={onClose}>
-      <ScrollView style={{ maxHeight: 500 }}>
-        {user ? (
-          <View style={{ alignItems: 'center', padding: spacing.md }}>
-            <Icon name="account-circle-outline" size={44} color={colors.primary} />
-            <Text style={[styles.userName, { color: colors.textPrimary }]}>{user.name}</Text>
-            <Text style={[styles.userEmail, { color: colors.textSecondary }]}>{user.email}</Text>
-            <Text style={[styles.userRole, { color: colors.primary }]}>Role: {user.role.toUpperCase()}</Text>
-
-            <Button
-              title="Logout Session"
-              onPress={() => { logoutSession(); onClose(); }}
-              variant="danger"
-              size="md"
-              style={{ marginTop: spacing.xl }}
-            />
+    <Sheet
+      visible={visible}
+      title={user ? 'User Account Session' : isRegister ? 'Create ArtisanHub Account' : 'Account Authentication'}
+      onClose={onClose}
+      footer={user ? (
+        <Button
+          label="Logout Session"
+          onPress={() => setLogoutConfirmVisible(true)}
+          variant="danger"
+          size="lg"
+        />
+      ) : (
+        <>
+          <Button
+            label={isRegister ? 'Register Account' : 'Log In'}
+            onPress={handleAuthSubmit}
+            loading={loading}
+            size="lg"
+          />
+          <Button
+            label={isRegister ? 'Already have an account? Log In' : "Don't have an account? Create One"}
+            onPress={() => { setIsRegister(!isRegister); setErrorMsg(''); }}
+            variant="accent-text"
+            size="sm"
+          />
+        </>
+      )}
+    >
+      {user ? (
+        <View style={styles.session}>
+          <View style={styles.sessionIcon}>
+            <Icon name="account-circle-outline" size={tokens.iconSizes.lg} color={tokens.colors.text} />
           </View>
-        ) : (
-          <View>
-            {errorMsg ? (
-              <Text style={[styles.errorBox, { backgroundColor: colors.dangerBackground, color: colors.danger }]}>
-                {errorMsg}
-              </Text>
-            ) : null}
+          <Text variant="heading" style={styles.centered}>{user.name}</Text>
+          <Text variant="body" color={tokens.colors.textMuted} style={styles.centered}>{user.email}</Text>
+          <Badge label={`Role: ${user.role.toUpperCase()}`} variant="accent" size="sm" style={styles.sessionBadge} />
+        </View>
+      ) : (
+        <>
+          {errorMsg ? <Text variant="body" color={tokens.colors.danger}>{errorMsg}</Text> : null}
 
-            {/* Quick Demo Accounts Picker */}
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Quick Demo Account Login</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: spacing.md }}>
+          {/* Quick Demo Accounts Picker */}
+          <View style={styles.group}>
+            <Text variant="meta" color={tokens.colors.textMuted}>Quick Demo Account Login</Text>
+            <ScrollView
+              horizontal
+              bounces={false}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chips}
+            >
               {SAMPLE_ACCOUNTS.map((acct, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  activeOpacity={0.7}
-                  onPress={() => handleQuickLogin(acct)}
-                  style={[styles.acctPill, { backgroundColor: colors.primaryLight, borderColor: colors.primary }]}
-                >
-                  <Text style={[styles.acctText, { color: colors.primary }]}>{acct.label}</Text>
-                </TouchableOpacity>
+                <Chip key={idx} label={acct.label} variant="accent-dot" onPress={() => handleQuickLogin(acct)} />
               ))}
             </ScrollView>
-
-            {isRegister && (
-              <>
-                <Input label="Full Name" placeholder="Amina Lawal" value={name} onChangeText={setName} />
-                <Text style={[styles.label, { color: colors.textSecondary, marginTop: spacing.sm }]}>Account Role</Text>
-                <View style={styles.roleRow}>
-                  <TouchableOpacity
-                    onPress={() => setRoleInput('customer')}
-                    style={[
-                      styles.rolePill,
-                      {
-                        backgroundColor: roleInput === 'customer' ? colors.primary : colors.inputBackground,
-                        borderColor: roleInput === 'customer' ? colors.primary : colors.inputBorder,
-                      }
-                    ]}
-                  >
-                    <Text style={{ color: roleInput === 'customer' ? '#FFFFFF' : colors.textPrimary, fontWeight: '600' }}>
-                      Customer (Hirer)
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => setRoleInput('artisan')}
-                    style={[
-                      styles.rolePill,
-                      {
-                        backgroundColor: roleInput === 'artisan' ? colors.primary : colors.inputBackground,
-                        borderColor: roleInput === 'artisan' ? colors.primary : colors.inputBorder,
-                      }
-                    ]}
-                  >
-                    <Text style={{ color: roleInput === 'artisan' ? '#FFFFFF' : colors.textPrimary, fontWeight: '600' }}>
-                      Skilled Artisan
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
-
-            <Input
-              label="Email Address"
-              placeholder="amina@gmail.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-
-            <Input
-              label="Password"
-              placeholder="••••••••"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
-
-            <Button
-              title={isRegister ? 'Register Account' : 'Log In'}
-              onPress={handleAuthSubmit}
-              loading={loading}
-              variant="primary"
-              size="lg"
-              style={{ marginTop: spacing.lg }}
-            />
-
-            <TouchableOpacity onPress={() => { setIsRegister(!isRegister); setErrorMsg(''); }} style={styles.switchMode}>
-              <Text style={[styles.switchText, { color: colors.primary }]}>
-                {isRegister ? 'Already have an account? Log In' : "Don't have an account? Create One"}
-              </Text>
-            </TouchableOpacity>
           </View>
-        )}
-      </ScrollView>
-    </Modal>
+
+          {isRegister && (
+            <>
+              <Input label="Full Name" placeholder="Amina Lawal" value={name} onChangeText={setName} />
+              <View style={styles.group}>
+                <Text variant="meta" color={tokens.colors.textMuted}>Account Role</Text>
+                <View style={styles.roleRow}>
+                  <Chip
+                    label="Customer (Hirer)"
+                    selected={roleInput === 'customer'}
+                    onPress={() => setRoleInput('customer')}
+                    style={styles.roleChip}
+                  />
+                  <Chip
+                    label="Skilled Artisan"
+                    selected={roleInput === 'artisan'}
+                    onPress={() => setRoleInput('artisan')}
+                    style={styles.roleChip}
+                  />
+                </View>
+              </View>
+            </>
+          )}
+
+          <Input
+            label="Email Address"
+            placeholder="amina@gmail.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          <Input
+            label="Password"
+            placeholder="••••••••"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+        </>
+      )}
+
+      <ConfirmDialog
+        visible={logoutConfirmVisible}
+        title="Log out?"
+        message="You will need to sign in again to post jobs, bid, or manage bookings."
+        confirmLabel="Log out"
+        destructive
+        onCancel={() => setLogoutConfirmVisible(false)}
+        onConfirm={() => { setLogoutConfirmVisible(false); logoutSession(); onClose(); }}
+      />
+    </Sheet>
   );
 };
 
 const styles = StyleSheet.create({
-  errorBox: {
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    fontSize: typography.fontSize.sm,
-    marginBottom: spacing.md,
+  session: {
+    alignItems: 'center',
+    gap: tokens.spacing[1],
   },
-  label: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
-    marginBottom: spacing.xs,
-  },
-  acctPill: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
+  sessionIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: tokens.radii.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceRaised,
     borderWidth: 1,
-    marginRight: spacing.sm,
+    borderColor: tokens.colors.border,
+    marginBottom: tokens.spacing[2],
   },
-  acctText: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.bold,
+  sessionBadge: {
+    alignSelf: 'center',
+    marginTop: tokens.spacing[2],
+  },
+  centered: {
+    textAlign: 'center',
+  },
+  group: {
+    gap: tokens.spacing[2],
+  },
+  chips: {
+    gap: tokens.spacing[2],
   },
   roleRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
+    gap: tokens.spacing[2],
   },
-  rolePill: {
+  // minWidth: 0 lets the two pills split the row evenly instead of sizing to their labels.
+  roleChip: {
     flex: 1,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    alignItems: 'center',
+    minWidth: 0,
   },
-  userName: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-  },
-  userEmail: {
-    fontSize: typography.fontSize.sm,
-    marginVertical: spacing.xs,
-  },
-  userRole: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.bold,
-  },
-  switchMode: {
-    alignItems: 'center',
-    marginTop: spacing.lg,
-  },
-  switchText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
-  }
 });

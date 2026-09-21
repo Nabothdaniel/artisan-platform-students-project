@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useTheme } from '../../theme/ThemeContext';
-import { Card } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
-import { Avatar } from '../../components/ui/Avatar';
-import { RatingStars } from '../../components/ui/RatingStars';
-import { api } from '../../services/api';
-import { spacing, typography, borderRadius } from '../../theme/spacing';
+import { tokens } from '../../theme/tokens';
+import {
+  Avatar,
+  Badge,
+  Button,
+  Card,
+  Chip,
+  Divider,
+  EmptyState,
+  Input,
+  Rating,
+  SectionHeader,
+  Skeleton,
+  Text,
+} from '../../components/ui/foundation';
 import { Icon } from '../../components/ui/Icon';
+import { api } from '../../services/api';
 
 const CATEGORIES = ['All', 'Plumbing', 'Electrical', 'Carpentry', 'Masonry', 'Auto Mechanics'];
 
@@ -19,7 +27,7 @@ interface HomeScreenProps {
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectArtisan, onCreateJobPress }) => {
-  const { colors } = useTheme();
+  const { user } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -55,139 +63,143 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectArtisan, onCreat
     fetchArtisans();
   };
 
+  const firstName = user?.name ? String(user.name).split(' ')[0] : null;
+
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchArtisans(); }} />}
+      style={styles.container}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          tintColor={tokens.colors.textMuted}
+          onRefresh={() => { setRefreshing(true); fetchArtisans(); }}
+        />
+      }
       contentContainerStyle={styles.contentContainer}
+      keyboardShouldPersistTaps="handled"
     >
-      {/* Search & Actions Bar */}
-      <View style={styles.searchSection}>
+      {/* Greeting */}
+      <View style={styles.greeting}>
+        <Text variant="title">{firstName ? `Hello, ${firstName}!` : 'Hello!'}</Text>
+        <Text variant="body" color={tokens.colors.textMuted}>
+          Hire trusted, verified artisans near you.
+        </Text>
+      </View>
+
+      {/* Search + post a job */}
+      <View style={styles.searchRow}>
         <Input
-          placeholder="Search artisan name, trade, or location..."
+          variant="inverse"
+          placeholder="Search artisans"
           value={searchQuery}
           onChangeText={setSearchQuery}
           onSubmitEditing={handleSearchSubmit}
-          leftIcon={<Icon name="magnify" size={18} color={colors.textMuted} />}
-          containerStyle={{ flex: 1 }}
+          returnKeyType="search"
+          leftIcon={<Icon name="magnify" size={tokens.iconSizes.sm} color={tokens.colors.textMuted} />}
+          containerStyle={styles.search}
         />
-        <Button
-          title="Post a Job"
-          onPress={onCreateJobPress}
-          variant="primary"
-          size="md"
-        />
+        <Button label="Post a Job" icon="briefcase-outline" onPress={onCreateJobPress} variant="secondary" size="sm" />
       </View>
 
-      {/* Verified Only Toggle */}
-      <View style={styles.filterRow}>
-        <TouchableOpacity
-          activeOpacity={0.7}
+      {/* Filters */}
+      <ScrollView
+        horizontal
+        bounces={false}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chips}
+      >
+        <Chip
+          label="Verified only"
+          variant="accent-dot"
+          selected={verifiedOnly}
           onPress={() => setVerifiedOnly(!verifiedOnly)}
-          style={[
-            styles.verifiedToggle,
-            {
-              backgroundColor: verifiedOnly ? colors.badgeVerifiedBg : colors.inputBackground,
-              borderColor: verifiedOnly ? colors.success : colors.inputBorder,
-            }
-          ]}
-        >
-          <Icon name={verifiedOnly ? 'check-circle-outline' : 'shield-check-outline'} size={17} color={verifiedOnly ? colors.success : colors.textSecondary} />
-          <Text style={[styles.verifiedText, { color: verifiedOnly ? colors.badgeVerifiedText : colors.textSecondary }]}>
-            Verified Artisans Only (NIN/BVN)
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Categories Horizontal Scroll */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
-        {CATEGORIES.map(cat => {
-          const isSelected = selectedCategory === cat;
-          return (
-            <TouchableOpacity
-              key={cat}
-              activeOpacity={0.7}
-              onPress={() => setSelectedCategory(cat)}
-              style={[
-                styles.categoryPill,
-                {
-                  backgroundColor: isSelected ? colors.primary : colors.cardBackground,
-                  borderColor: isSelected ? colors.primary : colors.cardBorder,
-                }
-              ]}
-            >
-              <Text style={[
-                styles.categoryText,
-                { color: isSelected ? '#FFFFFF' : colors.textSecondary }
-              ]}>
-                {cat}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+        />
+        {CATEGORIES.map(cat => (
+          <Chip
+            key={cat}
+            label={cat}
+            selected={selectedCategory === cat}
+            onPress={() => setSelectedCategory(cat)}
+          />
+        ))}
       </ScrollView>
 
       {/* Artisans Section */}
-      <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>
-        Available Trade Artisans ({artisans.length})
-      </Text>
+      <SectionHeader title={loading ? 'Available artisans' : `${artisans.length} artisans available`} />
 
       {loading ? (
-        <Text style={[styles.loadingText, { color: colors.textMuted }]}>Loading verified artisans...</Text>
-      ) : errorMessage ? (
-        <Card bordered>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{errorMessage}</Text>
-          <Button title="Try Again" onPress={fetchArtisans} variant="outline" size="md" />
-        </Card>
-      ) : artisans.length === 0 ? (
-        <Card bordered>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-            No artisans found matching selected filters. Try searching for other trades or reset filters.
-          </Text>
-        </Card>
-      ) : (
-        artisans.map(artisan => {
-          const profile = artisan.artisan_profile || {};
-          const isVerified = profile.kyc_status === 'approved';
-          const testPassed = profile.skill_test_status === 'passed';
-
-          return (
-            <Card key={artisan.id} onPress={() => onSelectArtisan(artisan)}>
+        <View style={styles.list}>
+          {[0, 1, 2].map(i => (
+            <Card key={i} style={styles.cardBody}>
               <View style={styles.artisanHeader}>
-                <Avatar name={artisan.name} size={50} />
-                <View style={styles.artisanInfo}>
-                  <View style={styles.nameRow}>
-                    <Text style={[styles.artisanName, { color: colors.textPrimary }]}>
-                      {artisan.name}
-                    </Text>
-                    {isVerified && <Badge label="NIN/BVN Verified" variant="verified" />}
-                  </View>
-                  <Text style={[styles.tradeText, { color: colors.textSecondary }]}>
-                    {profile.trade_category || 'General Skilled Labor'} • {artisan.location_name || 'Keffi'}
-                  </Text>
-                  <View style={styles.ratingRow}>
-                    <RatingStars rating={profile.rating_avg || 5.0} size={14} />
-                    <Text style={[styles.reviewsCount, { color: colors.textMuted }]}>
-                      ({profile.rating_count || 0} reviews)
-                    </Text>
-                    {testPassed && <Badge label="Skill Quiz Passed" variant="passed" style={{ marginLeft: spacing.xs }} />}
-                  </View>
+                <Skeleton width={48} height={48} style={styles.skeletonAvatar} />
+                <View style={styles.skeletonLines}>
+                  <Skeleton width="60%" />
+                  <Skeleton width="40%" height={12} />
                 </View>
               </View>
-
-              <Text style={[styles.bioText, { color: colors.textSecondary }]} numberOfLines={2}>
-                {profile.bio || 'Experienced trade artisan available for residential & commercial service bookings.'}
-              </Text>
-
-              <View style={[styles.artisanFooter, { borderTopColor: colors.divider }]}>
-                <Text style={[styles.rateText, { color: colors.primary }]}>
-                  ₦{(profile.hourly_rate || 3500).toLocaleString()}<Text style={styles.rateUnit}>/hr</Text>
-                </Text>
-                <Button title="View Details & Hire" onPress={() => onSelectArtisan(artisan)} variant="secondary" size="sm" />
-              </View>
+              <Skeleton />
+              <Skeleton width="80%" />
             </Card>
-          );
-        })
+          ))}
+        </View>
+      ) : errorMessage ? (
+        <Card>
+          <EmptyState title="Couldn't load artisans" description={errorMessage} />
+          <Button label="Try Again" onPress={fetchArtisans} variant="outline" />
+        </Card>
+      ) : artisans.length === 0 ? (
+        <Card>
+          <EmptyState
+            title="No artisans found"
+            description="Try searching for other trades or reset your filters."
+          />
+        </Card>
+      ) : (
+        <View style={styles.list}>
+          {artisans.map(artisan => {
+            const profile = artisan.artisan_profile || {};
+            const isVerified = profile.kyc_status === 'approved';
+            const testPassed = profile.skill_test_status === 'passed';
+
+            return (
+              <Card key={artisan.id} onPress={() => onSelectArtisan(artisan)} style={styles.cardBody}>
+                <View style={styles.artisanHeader}>
+                  <Avatar name={artisan.name} size={48} verified={isVerified} />
+                  <View style={styles.artisanInfo}>
+                    <Text variant="subheading" numberOfLines={1}>{artisan.name}</Text>
+                    <Text variant="meta" color={tokens.colors.textMuted} numberOfLines={1}>
+                      {profile.trade_category || 'General Skilled Labor'} • {artisan.location_name || 'Keffi'}
+                    </Text>
+                  </View>
+                </View>
+
+                <Rating value={profile.rating_avg || 5.0} count={profile.rating_count || 0} />
+
+                {isVerified || testPassed ? (
+                  <View style={styles.badges}>
+                    {isVerified ? <Badge label="NIN/BVN Verified" variant="success" size="sm" dot /> : null}
+                    {testPassed ? <Badge label="Skill Quiz Passed" variant="accent" size="sm" /> : null}
+                  </View>
+                ) : null}
+
+                <Text variant="body" color={tokens.colors.textMuted} numberOfLines={2}>
+                  {profile.bio || 'Experienced trade artisan available for residential & commercial service bookings.'}
+                </Text>
+
+                <Divider dashed />
+
+                <View style={styles.artisanFooter}>
+                  <View style={styles.rate}>
+                    <Text variant="heading">₦{(profile.hourly_rate || 3500).toLocaleString()}</Text>
+                    <Text variant="meta" color={tokens.colors.textMuted}>per hour</Text>
+                  </View>
+                  <Button label="View & Hire" onPress={() => onSelectArtisan(artisan)} variant="secondary" size="sm" />
+                </View>
+              </Card>
+            );
+          })}
+        </View>
       )}
     </ScrollView>
   );
@@ -196,109 +208,65 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectArtisan, onCreat
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: tokens.colors.background,
   },
   contentContainer: {
-    padding: spacing.lg,
+    paddingHorizontal: tokens.spacing[5],
+    paddingTop: tokens.spacing[2],
+    paddingBottom: tokens.spacing[6],
+    gap: tokens.spacing[4],
   },
-  searchSection: {
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
+  greeting: {
+    gap: tokens.spacing[1],
   },
-  filterRow: {
-    marginBottom: spacing.md,
-  },
-  verifiedToggle: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
+    gap: tokens.spacing[2],
   },
-  verifiedText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
+  search: {
+    flex: 1,
+    minWidth: 0,
   },
-  categoriesScroll: {
-    marginBottom: spacing.lg,
+  chips: {
+    gap: tokens.spacing[2],
   },
-  categoryPill: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    borderWidth: 1,
-    marginRight: spacing.sm,
+  list: {
+    gap: tokens.spacing[3],
   },
-  categoryText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.semibold,
-  },
-  sectionTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.md,
-  },
-  loadingText: {
-    fontSize: typography.fontSize.base,
-    textAlign: 'center',
-    marginVertical: spacing.xl,
-  },
-  emptyText: {
-    fontSize: typography.fontSize.base,
-    textAlign: 'center',
-    padding: spacing.md,
+  cardBody: {
+    gap: tokens.spacing[3],
   },
   artisanHeader: {
     flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.md,
+    alignItems: 'center',
+    gap: tokens.spacing[3],
   },
+  // minWidth: 0 lets long names truncate instead of widening the row.
   artisanInfo: {
     flex: 1,
+    minWidth: 0,
+    gap: tokens.spacing[1],
   },
-  nameRow: {
+  badges: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  artisanName: {
-    fontSize: typography.fontSize.base,
-    fontWeight: typography.fontWeight.bold,
-  },
-  tradeText: {
-    fontSize: typography.fontSize.sm,
-    marginVertical: spacing.xs,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flexWrap: 'wrap',
-  },
-  reviewsCount: {
-    fontSize: typography.fontSize.xs,
-  },
-  bioText: {
-    fontSize: typography.fontSize.sm,
-    lineHeight: typography.lineHeight.sm,
-    marginBottom: spacing.md,
+    gap: tokens.spacing[2],
   },
   artisanFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
+    gap: tokens.spacing[3],
   },
-  rateText: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: typography.fontWeight.bold,
+  rate: {
+    flexShrink: 1,
   },
-  rateUnit: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: typography.fontWeight.normal,
-  }
+  skeletonAvatar: {
+    borderRadius: tokens.radii.full,
+  },
+  skeletonLines: {
+    flex: 1,
+    gap: tokens.spacing[2],
+  },
 });

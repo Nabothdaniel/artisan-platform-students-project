@@ -35,7 +35,7 @@ export const RatingStars: React.FC<RatingStarsProps> = ({
               activeOpacity={0.7}
               style={{ paddingRight: spacing.xs }}
             >
-              <Icon name="star" size={size} color={filled ? colors.accent : colors.divider} />
+              <Icon name="star" size={size} color={filled ? colors.accent : colors.divider} filled={filled} />
             </StarItem>
           );
         })}
