@@ -1,68 +1,49 @@
-# ArtisanHub
+# ArtisanHub (Firebase Edition)
 
 ArtisanHub is a service marketplace for connecting customers with verified local artisans. Customers can post jobs, receive negotiable bids, accept an artisan, track job status, and submit reviews. Artisans can manage their profiles, complete skill assessments, submit KYC information, and bid on available jobs. Administrators can review KYC submissions and inspect platform activity.
 
-This repository contains:
+This branch (`firebase`) uses a serverless architecture powered by **React Native (Expo)**, **Firebase Authentication**, and **Cloud Firestore**, with automatic database seeding.
 
-- `backend/`: FastAPI API with SQLAlchemy models and JWT authentication.
-- `mobile/`: Expo and React Native client for Android, iOS, and web.
-- `scripts/start-dev.sh`: local launcher for the backend and Expo development server.
-- `render.yaml`: Render configuration for deploying the backend.
+## Repository Structure
+
+- `mobile/`: Expo and React Native client for Android, iOS, and web, integrated directly with Firebase Auth & Cloud Firestore.
+- `mobile/src/services/firebase.ts`: Firebase SDK initialization and configuration loader.
+- `mobile/src/services/seed.ts` & `mobile/src/services/seedData.ts`: Automatic idempotent Firestore + Firebase Auth seeder on app launch.
+- `mobile/scripts/seed-firebase.mjs`: Standalone CLI script (`npm run seed`) to seed the Firebase database from the terminal.
+- `firestore.rules` & `firestore.indexes.json`: Cloud Firestore security rules and index configuration.
 
 ## Requirements
 
-- Python 3.10 or newer
-- Node.js and npm
+- Node.js 18+ and npm
+- A Firebase project with **Cloud Firestore** and **Authentication (Email/Password)** enabled
 - Expo CLI through the local mobile dependencies
-- A device, emulator, or browser for the Expo client
 
 ## Quick Start
 
-From the repository root:
+1. Configure your Firebase project credentials in `mobile/.env` (copy from `mobile/.env.example`):
 
+**macOS / Linux / Git Bash:**
 ```bash
-chmod +x scripts/start-dev.sh
-./scripts/start-dev.sh
+cp mobile/.env.example mobile/.env
 ```
 
-The API starts at `http://127.0.0.1:8000` and Expo starts its development server. The API documentation is available at `http://127.0.0.1:8000/docs`.
-
-To start each service independently, use the focused setup below.
-
-## Backend Setup
-
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python -m app.seed
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+**Windows (PowerShell / CMD):**
+```powershell
+copy mobile\.env.example mobile\.env
 ```
 
-Run the backend tests with:
+Fill in your Firebase Web App configuration values:
 
-```bash
-cd backend
-source venv/bin/activate
-python -m unittest -q test_all_endpoints.py
+```env
+EXPO_PUBLIC_FIREBASE_API_KEY=your-api-key
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project-id.firebasestorage.app
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
+EXPO_PUBLIC_FIREBASE_APP_ID=your-app-id
 ```
 
-The test suite recreates and seeds the local database. Do not run it against a shared or production database.
-
-### Backend Environment Variables
-
-The backend reads these variables from the environment:
-
-| Variable | Purpose | Default |
-| --- | --- | --- |
-| `SECRET_KEY` | JWT signing key | Development fallback only |
-| `DATABASE_URL` | SQLAlchemy database URL | `sqlite:///./artisan_hub.db` |
-| `CORS_ORIGINS` | Comma-separated allowed origins | Local development origins |
-
-For local development, create `backend/.env` only if your environment loader or shell setup requires it. Never commit secrets or local database files. In production, always set a strong `SECRET_KEY` and use a managed Postgres database through `DATABASE_URL`.
-
-## Mobile Setup
+2. Install dependencies and start the app:
 
 ```bash
 cd mobile
@@ -70,74 +51,21 @@ npm install
 npm start
 ```
 
-Useful Expo commands:
+## Automatic & Manual Database Seeding
 
-```bash
-npm run android
-npm run ios
-npm run web
-```
-
-Check the TypeScript project with:
+- **Automatic on App Launch**: When the React Native app starts (`App.tsx`) or performs its first data query, `ensureDatabaseSeeded()` checks if the baseline skills and admin user exist in Firestore. If the database is empty, it automatically seeds all collections (`skills`, `users`, `kyc_verifications`, `bookings`, `bids`, `reviews`, `audit_logs`, and `counters`) and provisions the demo accounts in Firebase Authentication.
+- **Standalone CLI Seed**: You can also seed or reset the database anytime from the terminal:
 
 ```bash
 cd mobile
-npx tsc --noEmit --pretty false
+npm run seed
+# Or force re-seed:
+npm run seed -- --force
 ```
-
-The client detects the Expo host for physical devices and uses `10.0.2.2` for Android emulators. The backend must be reachable on port `8000` from the device or emulator.
-
-## API Overview
-
-The main API groups are:
-
-- `/api/auth`: registration, login, token authentication, and current-user data.
-- `/api/artisans`: artisan discovery and profile management.
-## Android APK Sharing
-
-The recommended way to create a shareable Android build is Expo Application Services (EAS). The `mobile/eas.json` file already defines a `preview` profile that produces an installable APK.
-
-Install and authenticate the EAS CLI:
-
-```bash
-npm install --global eas-cli
-eas login
-```
-
-From the mobile directory, configure the project once:
-
-```bash
-cd mobile
-eas build:configure
-```
-
-Create the shareable APK:
-
-```bash
-eas build --platform android --profile preview
-```
-
-EAS will provide a download URL when the cloud build finishes. Download the `.apk` and send it to the project owner. They can install it on Android after allowing installation from the source used to receive the file.
-
-For Google Play, use the production profile instead. It produces an Android App Bundle rather than an APK:
-
-```bash
-eas build --platform android --profile production
-```
-
-The APK is already configured to use the hosted Render API at `https://artisan-platform-students-project.onrender.com/api`, so the recipient does not need your local backend running.
-- `/api/skills`: skill categories and competency quizzes.
-- `/api/kyc`: artisan identity verification submissions and admin approval.
-- `/api/bookings`: customer jobs, artisan bids, bid acceptance, and status changes.
-- `/api/reviews`: completed-job reviews and artisan rating aggregates.
-- `/api/admin`: dashboard statistics and audit logs.
-- `/api/health`: service health check.
-
-Interactive API documentation is available at `/docs` when the backend is running.
 
 ## Seed Accounts
 
-The seed script creates demo accounts using the password `password123`:
+The seeder creates 6 demo accounts using the password `password123`:
 
 - Admin: `admin@artisanhub.ng`
 - Customer: `amina@gmail.com`
@@ -145,27 +73,3 @@ The seed script creates demo accounts using the password `password123`:
 - Artisan: `tunde@plumbing.ng`
 - Artisan: `ibrahim@sparks.ng`
 - Artisan: `chidi@woodcraft.ng`
-
-These credentials are for local development only.
-
-## Render Deployment
-
-The repository includes `render.yaml` for deploying the backend as a Render web service.
-
-Before deploying:
-
-1. Connect the repository to Render and use the Blueprint configuration.
-2. Replace the placeholder frontend origin in `render.yaml` with the real deployed client origin.
-3. Configure a managed Postgres database and set its connection string as `DATABASE_URL`.
-4. Confirm `SECRET_KEY` is generated or set to a secure value.
-5. Keep `CORS_ORIGINS` limited to the actual client and required local development origins.
-
-The Render service binds to Render's `$PORT` value and exposes the FastAPI app through `app.main:app`. SQLite data stored on a Render web service is not a reliable production datastore because local service storage is not intended for durable application data.
-
-## Repository Hygiene
-
-The root `.gitignore` excludes environment files, virtual environments, Python caches, SQLite databases, `node_modules`, Expo output, build artifacts, editor settings, logs, and local design scratch files. Commit source code, dependency manifests, configuration templates, and required app assets only.
-
-## Project Status
-
-ArtisanHub is an active student project. Before production launch, review authentication settings, database migrations, CORS policy, file storage, rate limiting, observability, and privacy handling for KYC data.

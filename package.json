@@ -2,6 +2,12 @@
   "name": "artisan-hub",
   "private": true,
   "scripts": {
-    "start": "bash scripts/start-dev.sh"
+    "start": "node scripts/start-dev.mjs",
+    "android": "npm --prefix mobile run android",
+    "ios": "npm --prefix mobile run ios",
+    "web": "npm --prefix mobile run web",
+    "seed": "npm --prefix mobile run seed",
+    "seed:force": "npm --prefix mobile run seed:force",
+    "install:mobile": "npm --prefix mobile install"
   }
 }

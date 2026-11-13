@@ -1,5 +1,5 @@
 import './src/dev/overflowDebug'; // DEV ONLY: flags any View wider than the window. Must stay first.
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './global.css';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +18,7 @@ import { RoleProfileModal } from './src/screens/profile/RoleProfileModal';
 import { RoleSwitcherSheet } from './src/screens/profile/RoleSwitcherSheet';
 import { FontGate } from './src/FontGate';
 import { DevShowcase } from './src/dev/DevShowcase';
+import { ensureDatabaseSeeded } from './src/services/seed';
 
 type Tab = { value: string; label: string; icon: IconName };
 
@@ -60,6 +61,10 @@ const MainApp = () => {
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [roleSwitcherVisible, setRoleSwitcherVisible] = useState(false);
   const [showcaseVisible, setShowcaseVisible] = useState(false);
+
+  useEffect(() => {
+    ensureDatabaseSeeded().catch(err => console.warn('Auto-seed check failed:', err));
+  }, []);
 
   const handleSelectArtisan = (artisan: any) => {
     setSelectedArtisan(artisan);
