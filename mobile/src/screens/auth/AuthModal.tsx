@@ -39,6 +39,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
       loginSession(data.access_token, me);
       onClose();
     } catch (err: any) {
+      console.error('[ArtisanHub] login/getMe failed:', err?.code, err?.message, err);
       setErrorMsg(err.message || 'Login failed. Please check credentials.');
     } finally {
       setLoading(false);

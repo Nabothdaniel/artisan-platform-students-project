@@ -194,6 +194,7 @@ async function fetchAllFromCollection<T>(collectionName: string): Promise<T[]> {
     snap.forEach(d => items.push(d.data() as T));
     return items;
   } catch (err: any) {
+    console.warn(`[ArtisanHub] fetch ${collectionName} failed:`, err?.code, err?.message);
     if (err?.code === 'permission-denied' || err?.code === 'not-found') {
       markFirestoreUnavailable();
       return getLocalCollection(collectionName) as T[];
@@ -292,9 +293,16 @@ export const api = {
 
   // Auth
   login: async (credentials: { email: string; password: string }) => {
-    await ensureDatabaseSeeded();
     const normalizedEmail = credentials.email.trim().toLowerCase();
     const password = credentials.password;
+    console.log('[ArtisanHub] login: start', { email: normalizedEmail, firebaseConfigured: isFirebaseConfigured, firestoreAvailable: isFirestoreAvailable() });
+    try {
+      const seedResult = await ensureDatabaseSeeded();
+      console.log('[ArtisanHub] login: seed check result', seedResult);
+    } catch (err: any) {
+      console.error('[ArtisanHub] login: ensureDatabaseSeeded threw', err?.code, err?.message, err);
+      throw err;
+    }
 
     if (!isFirebaseConfigured) {
       const user = localStore.users.find(u => u.email.toLowerCase() === normalizedEmail);
@@ -314,19 +322,27 @@ export const api = {
     const auth = getFirebaseAuth();
     const users = await fetchAllFromCollection<SeedUser>(COLLECTIONS.USERS);
     let targetUser = users.find(u => u.email.toLowerCase() === normalizedEmail) || null;
+    console.log('[ArtisanHub] login: loaded users', { count: users.length, found: !!targetUser, firestoreAvailable: isFirestoreAvailable() });
 
     let firebaseUid: string | undefined = targetUser?.uid;
 
     try {
       const cred = await signInWithEmailAndPassword(auth, normalizedEmail, password);
       firebaseUid = cred.user.uid;
-    } catch {
+      console.log('[ArtisanHub] login: signIn ok', firebaseUid);
+    } catch (signInErr: any) {
+      console.warn('[ArtisanHub] signIn failed:', signInErr?.code, signInErr?.message);
+      const infraCodes = ['auth/network-request-failed', 'auth/too-many-requests', 'auth/invalid-api-key'];
+      if (infraCodes.includes(signInErr?.code)) {
+        throw new Error(`Login failed (${signInErr.code}). Check your connection and Firebase config.`);
+      }
       // If user is in seeded/Firestore store with matching password, provision Firebase Auth user
       if (targetUser && (!targetUser.password || targetUser.password === password)) {
         try {
           const created = await createUserWithEmailAndPassword(auth, normalizedEmail, password);
           firebaseUid = created.user.uid;
         } catch (createErr: any) {
+          console.warn('[ArtisanHub] login: createUser fallback failed:', createErr?.code, createErr?.message);
           const ignorableCodes = [
             'auth/configuration-not-found',
             'auth/operation-not-allowed',

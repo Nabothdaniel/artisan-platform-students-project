@@ -43,6 +43,7 @@ export function isFirestoreAvailable(): boolean {
 }
 
 export function markFirestoreUnavailable(): void {
+  console.warn('[ArtisanHub] Firestore marked UNAVAILABLE, falling back to local store.\n' + new Error().stack);
   firestoreAvailable = false;
 }
 
@@ -111,7 +112,8 @@ export async function ensureDatabaseSeeded(options?: {
             firestoreAvailable = true;
             return { seeded: false, reason: 'already_seeded' };
           }
-        } catch {
+        } catch (err: any) {
+          console.warn('[ArtisanHub] seed check read failed:', err?.code, err?.message);
           // If rules require auth for reads, authenticate below and retry
         }
       }

@@ -1,5 +1,6 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, initializeAuth, Auth } from 'firebase/auth';
+import { Platform } from 'react-native';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 type ExtraFirebaseConfig = {
@@ -76,7 +77,22 @@ export function getFirebaseApp(): FirebaseApp {
 
 export function getFirebaseAuth(): Auth {
   if (!authInstance) {
-    authInstance = getAuth(getFirebaseApp());
+    const app = getFirebaseApp();
+    if (Platform.OS === 'web') {
+      authInstance = getAuth(app);
+    } else {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        // Not in the public TS typings, but exported by the React Native build of firebase/auth
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const { getReactNativePersistence } = require('firebase/auth');
+        authInstance = initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
+      } catch {
+        // Already initialized (e.g. fast refresh) — reuse the existing instance
+        authInstance = getAuth(app);
+      }
+    }
   }
   return authInstance;
 }

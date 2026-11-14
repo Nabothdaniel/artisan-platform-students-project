@@ -1,9 +1,13 @@
 import fs from 'node:fs';
+import dns from 'node:dns';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, doc, getDoc, writeBatch, setDoc } from 'firebase/firestore';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+
+// Node can time out on IPv6-only routes to Google (common on Windows); prefer IPv4.
+dns.setDefaultResultOrder('ipv4first');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

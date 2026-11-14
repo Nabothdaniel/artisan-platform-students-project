@@ -18,7 +18,23 @@ This branch (`firebase`) uses a serverless architecture powered by **React Nativ
 - A Firebase project with **Cloud Firestore** and **Authentication (Email/Password)** enabled
 - Expo CLI through the local mobile dependencies
 
-## Quick Start
+## One-Command Setup (Windows Git Bash / macOS / Linux)
+
+After cloning, run this from the repo root. On Windows use **Git Bash** (installed with [Git for Windows](https://git-scm.com/download/win)):
+
+```bash
+git clone <repo-url>
+cd artisan-platform-students-project
+bash scripts/setup.sh
+```
+
+The script checks Node 18+, creates `mobile/.env` from `.env.example` (pre-filled with the shared Firebase project), installs dependencies, typechecks, and seeds Firebase. Use `bash scripts/setup.sh --no-seed` to skip seeding. Then start the app with `npm start`.
+
+Not using Git Bash? From cmd or PowerShell run `scripts\setup.bat` instead.
+
+The seed script already prefers IPv4, which avoids `auth/network-request-failed` / "client is offline" timeouts on some networks.
+
+## Quick Start (manual)
 
 1. Configure your Firebase project credentials in `mobile/.env` (copy from `mobile/.env.example`):
 
