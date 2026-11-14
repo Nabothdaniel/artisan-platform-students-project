@@ -2,7 +2,7 @@ import './src/dev/overflowDebug'; // DEV ONLY: flags any View wider than the win
 import React, { useEffect, useState } from 'react';
 import './global.css';
 import { StatusBar, StyleSheet, View } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from './src/theme/ThemeContext';
 import { tokens } from './src/theme/tokens';
 import { Button, FLOATING_TAB_BAR_SPACE, FloatingTabBar, Header, IconButton, ToastProvider } from './src/components/ui/foundation';
@@ -114,8 +114,18 @@ const MainApp = () => {
     setActiveTab(tab);
   };
 
+  // Explicit insets (instead of SafeAreaView) so the header never sits under the
+  // notch / Dynamic Island, the tab bar clears the home indicator, and landscape
+  // side cutouts are respected. Modals handle their own insets (see Sheet).
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <View
+      style={[
+        styles.safeArea,
+        { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right },
+      ]}
+    >
       <StatusBar barStyle="light-content" backgroundColor={tokens.colors.background} />
 
       <Header
@@ -193,13 +203,13 @@ const MainApp = () => {
       />
 
       {__DEV__ && showcaseVisible ? <DevShowcase onClose={() => setShowcaseVisible(false)} /> : null}
-    </SafeAreaView>
+    </View>
   );
 };
 
 export default function App() {
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
       <FontGate>
         <ThemeProvider>
           <ToastProvider>

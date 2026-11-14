@@ -9,18 +9,20 @@ import {
 } from 'react-native';
 import { Pressable } from './Pressable';
 import { tokens } from '../../../theme/tokens';
-import { OVERLAY_MAX_HEIGHT_RATIO, OverlayBody, OverlayFooter, OverlayHeader, OverlayProps } from './Sheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getOverlayMaxHeight, OverlayBody, OverlayFooter, OverlayHeader, OverlayProps } from './Sheet';
 
 /** Centred dialog. Same props and same three zones as Sheet. */
 export const Modal: React.FC<OverlayProps> = ({ visible, onClose, children, title, footer, style }) => {
   const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   return (
     <RNModal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Dismiss" />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.keyboard}>
-          <View style={[styles.dialog, { maxHeight: height * OVERLAY_MAX_HEIGHT_RATIO }, style]}>
+          <View style={[styles.dialog, { maxHeight: getOverlayMaxHeight(height, insets.top + insets.bottom) }, style]}>
             {title ? <OverlayHeader title={title} onClose={onClose} /> : null}
             <OverlayBody>{children}</OverlayBody>
             {/* Centred, so it is not against the screen edge: no safe-area inset. */}

@@ -29,6 +29,10 @@ export interface OverlayProps {
 /** Fraction of the window an overlay may occupy at most. */
 export const OVERLAY_MAX_HEIGHT_RATIO = 0.88;
 
+/** Max overlay height: the ratio of the window, but never taller than the space below the notch/status bar. */
+export const getOverlayMaxHeight = (windowHeight: number, topInset: number): number =>
+  Math.min(windowHeight * OVERLAY_MAX_HEIGHT_RATIO, windowHeight - topInset - tokens.spacing[3]);
+
 export const OverlayHeader: React.FC<{ title: string; onClose: () => void }> = ({ title, onClose }) => (
   <View style={styles.header}>
     <Text variant="heading" numberOfLines={2} style={styles.headerTitle}>{title}</Text>
@@ -71,7 +75,7 @@ export const Sheet: React.FC<OverlayProps> = ({ visible, onClose, children, titl
           <View
             style={[
               styles.sheet,
-              { maxHeight: height * OVERLAY_MAX_HEIGHT_RATIO },
+              { maxHeight: getOverlayMaxHeight(height, insets.top) },
               // Without a footer the sheet itself owes the safe-area inset.
               !footer && { paddingBottom: insets.bottom },
               style,
